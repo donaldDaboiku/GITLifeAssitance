@@ -40,6 +40,50 @@ class AuthController extends Controller
         return new UserResource(Auth::guard('web')->user()->load('preference'));
     }
 
+    /**
+     * Token login for Tauri/Capacitor (and other non-cookie clients).
+     */
+    public function tokenLogin(LoginRequest $request): JsonResponse
+    {
+        if (! Auth::guard('web')->attempt($request->only('email', 'password'))) {
+            throw ValidationException::withMessages([
+                'email' => 'These credentials do not match our records.',
+            ]);
+        }
+
+        /** @var User $user */
+        $user = Auth::guard('web')->user();
+        $deviceName = $request->string('device_name')->toString() ?: 'Device';
+        $deviceType = $request->string('device_type')->toString() ?: 'web';
+        if (! in_array($deviceType, ['web', 'android', 'windows'], true)) {
+            $deviceType = 'web';
+        }
+
+        $token = $user->createToken($deviceName);
+        $device = $user->devices()->create([
+            'name' => $deviceName,
+            'type' => $deviceType,
+            'app_version' => $request->input('app_version'),
+            'access_token_id' => $token->accessToken->id,
+            'last_sync_at' => now(),
+            'active' => true,
+        ]);
+
+        AuditLog::write($user->id, 'token_login', ['device_id' => $device->id]);
+
+        return response()->json([
+            'data' => (new UserResource($user->load('preference')))->resolve(),
+            'token' => $token->plainTextToken,
+            'device' => [
+                'id' => $device->id,
+                'name' => $device->name,
+                'type' => $device->type,
+                'app_version' => $device->app_version,
+                'active' => $device->active,
+            ],
+        ]);
+    }
+
     public function logout(Request $request): Response
     {
         $user = $request->user();

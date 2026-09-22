@@ -2,10 +2,11 @@
 
 Remember. Plan. Act.
 
-Phase 1 and Phase 2 are in this repo.
+Phase 1, Phase 2, and Phase 3 are in this repo.
 
 - **Phase 1:** sign up, recurring payments and tasks, reminders, mark paid, installable PWA.
 - **Phase 2:** payment categories/methods and expected week/month totals, contacts, birthdays/anniversaries with gift planning, shopping lists with kobo totals, visits with follow-up offers, activity links, and global search.
+- **Phase 3:** same React app in Tauri (Windows) and Capacitor (Android), tray/widgets/global shortcut, Android notification actions, device registration, and Sanctum token login for native shells.
 
 Laravel has not shipped a long-term-support release since version 6. This project uses **Laravel 13**, the current supported release (PHP 8.3+).
 
@@ -92,3 +93,31 @@ Tests use an in-memory SQLite database. They do not need Docker.
 4. Open Shopping to see estimated, actual, and remaining totals.
 5. Use Search to find something by name across activities, people, shopping, and notes.
 6. On Home, check **Expected payments** for this week and this month.
+
+## Phase 3 native shells
+
+Native apps use the same React build. They sign in with `POST /api/token-login` (bearer token) instead of cookies, and register under **Devices**.
+
+### Windows (Tauri)
+
+Needs Rust (`rustc` / `cargo`) once. From `frontend`:
+
+```powershell
+npm run tauri:dev
+```
+
+That opens the desk app with tray menu, **Ctrl+Alt+Space** Quick Capture, and `/widget` compact/expanded views. Change the shortcut under Devices.
+
+### Android (Capacitor)
+
+Needs Android Studio. From `frontend`:
+
+```powershell
+npm run build
+npx cap sync android
+npm run cap:open
+```
+
+Point the device at your API with `VITE_API_URL` (for example `http://192.168.x.x:8000`) before `npm run build`. Local notification actions Open / Done / Mark Paid / Snooze are registered at startup; the FCM token is stored on the device row when push registration succeeds.
+
+See [docs/PHASE3.md](docs/PHASE3.md) for the acceptance checklist.

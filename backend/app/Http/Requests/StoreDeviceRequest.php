@@ -17,6 +17,7 @@ class StoreDeviceRequest extends FormRequest
             'name' => ['required', 'string', 'max:100'],
             'type' => ['required', 'in:web,android,windows'],
             'app_version' => ['nullable', 'string', 'max:50'],
+            'push_token' => ['nullable', 'string', 'max:4096'],
         ];
     }
 }

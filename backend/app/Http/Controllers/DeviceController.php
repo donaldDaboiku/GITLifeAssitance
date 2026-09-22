@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDeviceRequest;
+use App\Http\Requests\UpdateDeviceRequest;
 use App\Models\AuditLog;
 use App\Models\Device;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,15 @@ use Illuminate\Http\Response;
 
 class DeviceController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $devices = $request->user()->devices()->orderByDesc('updated_at')->get();
+
+        return response()->json([
+            'data' => $devices->map(fn (Device $device) => $this->payload($device))->all(),
+        ]);
+    }
+
     public function store(StoreDeviceRequest $request): JsonResponse
     {
         $token = $request->user()->createToken($request->string('name')->toString());
@@ -19,6 +29,7 @@ class DeviceController extends Controller
             'name' => $request->string('name')->toString(),
             'type' => $request->string('type')->toString(),
             'app_version' => $request->input('app_version'),
+            'push_token' => $request->input('push_token'),
             'access_token_id' => $token->accessToken->id,
             'last_sync_at' => now(),
             'active' => true,
@@ -32,11 +43,28 @@ class DeviceController extends Controller
         ], 201);
     }
 
+    public function update(UpdateDeviceRequest $request, Device $device): JsonResponse
+    {
+        abort_unless($device->user_id === $request->user()->id, 403);
+
+        $device->fill($request->validated());
+        if ($request->has('last_sync_at')) {
+            $device->last_sync_at = now();
+        }
+        $device->save();
+
+        AuditLog::write($request->user()->id, 'device_updated', ['device_id' => $device->id]);
+
+        return response()->json(['device' => $this->payload($device->fresh())]);
+    }
+
     public function destroy(Request $request, Device $device): Response
     {
         abort_unless($device->user_id === $request->user()->id, 403);
 
         $device->accessToken?->delete();
+        $device->active = false;
+        $device->save();
         $device->delete();
         AuditLog::write($request->user()->id, 'device_revoked', ['device_id' => $device->id]);
 
@@ -50,6 +78,8 @@ class DeviceController extends Controller
             'name' => $device->name,
             'type' => $device->type,
             'app_version' => $device->app_version,
+            'push_token' => $device->push_token,
+            'last_sync_at' => $device->last_sync_at?->toIso8601String(),
             'active' => $device->active,
         ];
     }

@@ -14,13 +14,16 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/token-login', [AuthController::class, 'tokenLogin']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    Route::get('/devices', [DeviceController::class, 'index']);
     Route::post('/devices', [DeviceController::class, 'store']);
+    Route::put('/devices/{device}', [DeviceController::class, 'update']);
     Route::delete('/devices/{device}', [DeviceController::class, 'destroy']);
 
     Route::get('/dashboard', DashboardController::class);

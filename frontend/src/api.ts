@@ -1,3 +1,5 @@
+import { getAccessToken, isNativePlatform } from './platform'
+
 const API = import.meta.env.VITE_API_URL ?? ''
 
 export class ApiError extends Error {
@@ -21,19 +23,34 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     throw new ApiError(0, 'You appear to be offline. This action needs a connection.')
   }
 
+  const native = isNativePlatform() || Boolean(getAccessToken())
   let response: Response
   try {
-    await fetch(`${API}/sanctum/csrf-cookie`, { credentials: 'include' })
+    if (!native) {
+      await fetch(`${API}/sanctum/csrf-cookie`, { credentials: 'include' })
+    }
+
     const headers = new Headers(options.headers)
     headers.set('Accept', 'application/json')
     if (options.body && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json')
     }
-    const token = xsrfToken()
-    if (token) {
-      headers.set('X-XSRF-TOKEN', token)
+
+    const accessToken = getAccessToken()
+    if (accessToken) {
+      headers.set('Authorization', `Bearer ${accessToken}`)
+    } else {
+      const token = xsrfToken()
+      if (token) {
+        headers.set('X-XSRF-TOKEN', token)
+      }
     }
-    response = await fetch(`${API}${path}`, { ...options, headers, credentials: 'include' })
+
+    response = await fetch(`${API}${path}`, {
+      ...options,
+      headers,
+      credentials: accessToken ? 'omit' : 'include',
+    })
   } catch {
     throw new ApiError(0, 'The server could not be reached. Check that the API is running.')
   }

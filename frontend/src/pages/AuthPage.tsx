@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, type User } from '../api'
+import { detectPlatform, isNativePlatform, setAccessToken, setDeviceId } from '../platform'
+import { registerCurrentDevice } from '../native'
 
 export function AuthPage({ mode, onUser }: { mode: 'login' | 'register'; onUser: (user: User) => void }) {
   const [name, setName] = useState('')
@@ -13,11 +15,36 @@ export function AuthPage({ mode, onUser }: { mode: 'login' | 'register'; onUser:
     event.preventDefault()
     setError('')
     try {
+      if (mode === 'login' && isNativePlatform()) {
+        const platform = detectPlatform()
+        const response = await api<{
+          data: User
+          token: string
+          device: { id: string }
+        }>('/api/token-login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            password,
+            device_name: `${platform} app`,
+            device_type: platform,
+            app_version: import.meta.env.VITE_APP_VERSION ?? '0.3.0',
+          }),
+        })
+        setAccessToken(response.token)
+        setDeviceId(response.device.id)
+        onUser(response.data)
+        return
+      }
+
       const path = mode === 'login' ? '/api/login' : '/api/register'
       const body = mode === 'login'
         ? { email, password }
         : { name, email, password, password_confirmation: passwordConfirmation }
       const response = await api<{ data: User }>(path, { method: 'POST', body: JSON.stringify(body) })
+      if (mode === 'register' || !isNativePlatform()) {
+        await registerCurrentDevice({ name: 'Web browser' }).catch(() => undefined)
+      }
       onUser(response.data)
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Could not sign in.')
