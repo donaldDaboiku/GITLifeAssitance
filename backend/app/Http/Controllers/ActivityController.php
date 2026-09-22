@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateActivityRequest;
 use App\Http\Resources\ActivityResource;
 use App\Models\Activity;
 use App\Services\ActivityService;
+use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -25,11 +26,26 @@ class ActivityController extends Controller
         return ActivityResource::collection($activities);
     }
 
-    public function store(StoreActivityRequest $request, ActivityService $activities): JsonResponse
+    public function store(StoreActivityRequest $request, ActivityService $activities, WorkflowService $workflows): JsonResponse
     {
-        $activity = $activities->create($request->user(), $request->validated());
+        $data = $request->validated();
+        $gift = $data['gift'] ?? null;
+        unset($data['gift']);
 
-        return (new ActivityResource($activity))->response()->setStatusCode(201);
+        $activity = $activities->create($request->user(), $data);
+        $payload = ['data' => (new ActivityResource($activity))->resolve()];
+
+        if ($gift && in_array($activity->type, ['birthday', 'anniversary'], true)) {
+            $planned = $workflows->planBirthdayGift($activity, $request->user(), $gift);
+            $payload['gift_plan'] = [
+                'shopping_list_id' => $planned['shopping_list']->id,
+                'shopping_item_id' => $planned['shopping_item']->id,
+                'task_id' => $planned['task']->id,
+            ];
+            $payload['data'] = (new ActivityResource($activity->fresh()->load(Activity::RELATIONS)))->resolve();
+        }
+
+        return response()->json($payload, 201);
     }
 
     public function show(Request $request, Activity $activity): ActivityResource
@@ -43,8 +59,10 @@ class ActivityController extends Controller
     public function update(UpdateActivityRequest $request, Activity $activity, ActivityService $activities): ActivityResource
     {
         $this->authorize('update', $activity);
+        $data = $request->validated();
+        unset($data['gift']);
 
-        return new ActivityResource($activities->update($activity, $request->validated()));
+        return new ActivityResource($activities->update($activity, $data));
     }
 
     public function destroy(Request $request, Activity $activity): Response
@@ -55,6 +73,8 @@ class ActivityController extends Controller
         $activity->recurrence()?->delete();
         $activity->paymentDetail()?->delete();
         $activity->task()?->delete();
+        $activity->childLinks()->delete();
+        $activity->parentLinks()->delete();
         $activity->delete();
 
         return response()->noContent();

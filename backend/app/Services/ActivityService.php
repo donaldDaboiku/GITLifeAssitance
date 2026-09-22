@@ -15,7 +15,7 @@ class ActivityService
     {
         return DB::transaction(function () use ($user, $data) {
             $timezone = $data['timezone'] ?? $user->preference?->timezone ?? 'Africa/Lagos';
-            $dueLocal = $this->dueLocal($user, $data['due_on'], $timezone);
+            $dueLocal = $this->dueLocal($user, $data['due_on'], $data['due_at_time'] ?? null, $timezone);
 
             $activity = new Activity([
                 'user_id' => $user->id,
@@ -26,7 +26,9 @@ class ActivityService
                 'priority' => $data['priority'] ?? 'normal',
                 'timezone' => $timezone,
                 'location' => $data['location'] ?? null,
+                'contact_id' => $data['contact_id'] ?? null,
                 'notes' => $data['notes'] ?? null,
+                'metadata' => $data['metadata'] ?? null,
             ]);
 
             if (! empty($data['id'])) {
@@ -56,7 +58,9 @@ class ActivityService
                 'priority' => $data['priority'] ?? $activity->priority,
                 'timezone' => $timezone,
                 'location' => $data['location'] ?? null,
+                'contact_id' => $data['contact_id'] ?? $activity->contact_id,
                 'notes' => $data['notes'] ?? null,
+                'metadata' => $data['metadata'] ?? $activity->metadata,
             ])->save();
 
             $this->writeTypeDetails($activity, $user, $data);
@@ -65,7 +69,7 @@ class ActivityService
             $this->writeReminders($activity, $user, $data['reminder_offsets_minutes'] ?? []);
 
             $activity->occurrences()->where('status', 'pending')->delete();
-            $dueLocal = $this->dueLocal($user, $data['due_on'], $timezone);
+            $dueLocal = $this->dueLocal($user, $data['due_on'], $data['due_at_time'] ?? null, $timezone);
             $this->recurrence->materialize($activity->load('recurrence'), $dueLocal);
 
             return $activity->load(Activity::RELATIONS);
@@ -88,10 +92,14 @@ class ActivityService
             );
         }
 
-        if ($activity->type === 'task') {
+        if (in_array($activity->type, ['task', 'follow_up'], true)) {
             $activity->task()->updateOrCreate(
                 ['activity_id' => $activity->id],
-                ['user_id' => $user->id],
+                [
+                    'user_id' => $user->id,
+                    'follow_up_after_days' => $data['task']['follow_up_after_days'] ?? null,
+                    'follow_up_rule' => $data['task']['follow_up_rule'] ?? null,
+                ],
             );
         }
     }
@@ -123,9 +131,11 @@ class ActivityService
         }
     }
 
-    private function dueLocal(User $user, string $dueOn, string $timezone): CarbonImmutable
+    private function dueLocal(User $user, string $dueOn, ?string $dueAtTime, string $timezone): CarbonImmutable
     {
-        $time = substr((string) ($user->preference?->reminder_time ?? '09:00:00'), 0, 8);
+        $time = $dueAtTime
+            ? substr($dueAtTime, 0, 8)
+            : substr((string) ($user->preference?->reminder_time ?? '09:00:00'), 0, 8);
 
         return CarbonImmutable::parse($dueOn.' '.$time, $timezone);
     }

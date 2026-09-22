@@ -8,7 +8,10 @@ use Carbon\CarbonImmutable;
 
 class OccurrenceService
 {
-    public function __construct(private RecurrenceService $recurrence) {}
+    public function __construct(
+        private RecurrenceService $recurrence,
+        private VisitFollowUpService $visitFollowUps,
+    ) {}
 
     public function markPaid(ActivityOccurrence $occurrence): Activity
     {
@@ -19,9 +22,18 @@ class OccurrenceService
         return $this->finish($occurrence, 'completed');
     }
 
-    public function complete(ActivityOccurrence $occurrence): Activity
+    /**
+     * @return array{activity: Activity, follow_up_offers: list<array{key: string, label: string}>|null}
+     */
+    public function complete(ActivityOccurrence $occurrence): array
     {
-        return $this->finish($occurrence, 'completed');
+        $activity = $this->finish($occurrence, 'completed');
+        $occurrence->refresh();
+
+        return [
+            'activity' => $activity,
+            'follow_up_offers' => $this->visitFollowUps->maybeOffer($occurrence),
+        ];
     }
 
     public function skip(ActivityOccurrence $occurrence): Activity

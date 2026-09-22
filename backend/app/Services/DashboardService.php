@@ -8,6 +8,8 @@ use Carbon\CarbonImmutable;
 
 class DashboardService
 {
+    public function __construct(private PaymentForecastService $forecast) {}
+
     public function summary(User $user): array
     {
         $timezone = $user->preference?->timezone ?? 'Africa/Lagos';
@@ -28,7 +30,11 @@ class DashboardService
             'due_today' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => $date($occurrence) === $today)->values()),
             'upcoming' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => $date($occurrence) > $today)->take(5)->values()),
             'payments' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => $occurrence->activity->type === 'payment')->take(5)->values()),
-            'tasks' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => $occurrence->activity->type === 'task')->take(5)->values()),
+            'tasks' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => in_array($occurrence->activity->type, ['task', 'follow_up'], true))->take(5)->values()),
+            'shopping' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => $occurrence->activity->type === 'shopping')->take(5)->values()),
+            'events' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => in_array($occurrence->activity->type, ['birthday', 'anniversary', 'event'], true))->take(5)->values()),
+            'follow_ups' => $this->items($pending->filter(fn (ActivityOccurrence $occurrence) => $occurrence->activity->type === 'follow_up')->take(5)->values()),
+            'expected_payments' => $this->forecast->expectedTotals($user),
         ];
     }
 

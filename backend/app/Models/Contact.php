@@ -9,32 +9,36 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Task extends Model
+class Contact extends Model
 {
     use HasUuids, SoftDeletes, SyncsColumns;
 
     protected $fillable = [
-        'activity_id',
         'user_id',
-        'follow_up_after_days',
-        'follow_up_rule',
+        'name',
+        'phone',
+        'email',
+        'relationship',
+        'birthday',
+        'anniversary',
+        'notes',
     ];
 
     protected function casts(): array
     {
         return [
-            'follow_up_after_days' => 'integer',
-            'follow_up_rule' => 'array',
+            'birthday' => 'date',
+            'anniversary' => 'date',
         ];
     }
 
-    public function activity(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Activity::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function subtasks(): HasMany
+    public function activities(): HasMany
     {
-        return $this->hasMany(Subtask::class)->orderBy('position');
+        return $this->hasMany(Activity::class);
     }
 }

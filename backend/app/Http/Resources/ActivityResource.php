@@ -19,7 +19,9 @@ class ActivityResource extends JsonResource
             'priority' => $this->priority,
             'timezone' => $this->timezone,
             'location' => $this->location,
+            'contact_id' => $this->contact_id,
             'notes' => $this->notes,
+            'metadata' => $this->metadata,
             'version' => $this->version,
             'rrule' => $this->recurrence?->rrule,
             'reminder_offsets_minutes' => $this->whenLoaded(
@@ -35,6 +37,25 @@ class ActivityResource extends JsonResource
                 'payment_method' => $this->paymentDetail->payment_method,
                 'account_reference' => $this->paymentDetail->account_reference,
             ]),
+            'task' => $this->when($this->relationLoaded('task') && $this->task, fn () => [
+                'follow_up_after_days' => $this->task->follow_up_after_days,
+                'follow_up_rule' => $this->task->follow_up_rule,
+                'subtasks' => $this->task->relationLoaded('subtasks')
+                    ? $this->task->subtasks->map(fn ($subtask) => [
+                        'id' => $subtask->id,
+                        'title' => $subtask->title,
+                        'completed' => $subtask->completed,
+                        'position' => $subtask->position,
+                    ])
+                    : [],
+            ]),
+            'links' => $this->when($this->relationLoaded('childLinks'), fn () => $this->childLinks->map(fn ($link) => [
+                'id' => $link->id,
+                'relation' => $link->relation,
+                'child_activity_id' => $link->child_activity_id,
+                'child_title' => $link->child?->title,
+                'child_type' => $link->child?->type,
+            ])),
             'occurrences' => OccurrenceResource::collection($this->whenLoaded('occurrences')),
         ];
     }

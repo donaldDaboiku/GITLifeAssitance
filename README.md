@@ -2,7 +2,10 @@
 
 Remember. Plan. Act.
 
-Phase 1 is a mobile-friendly web app: sign up, add a recurring payment or a task, get an in-app and email reminder, mark a payment paid, and see the next month stay upcoming.
+Phase 1 and Phase 2 are in this repo.
+
+- **Phase 1:** sign up, recurring payments and tasks, reminders, mark paid, installable PWA.
+- **Phase 2:** payment categories/methods and expected week/month totals, contacts, birthdays/anniversaries with gift planning, shopping lists with kobo totals, visits with follow-up offers, activity links, and global search.
 
 Laravel has not shipped a long-term-support release since version 6. This project uses **Laravel 13**, the current supported release (PHP 8.3+).
 
@@ -81,9 +84,11 @@ php artisan test
 
 Tests use an in-memory SQLite database. They do not need Docker.
 
-## Try the first payment
+## Try Phase 2
 
-1. Sign up.
-2. Add a payment named Internet, amount `20000`, due date on the 25th, repeat Monthly, reminders 3 days before and 1 day before.
-3. Open it and choose Mark paid on the first date.
-4. That date becomes completed. The next month stays upcoming. The amount is shown as expected naira, and stored as 2000000 kobo.
+1. Add a person under People.
+2. Add a birthday with a gift idea. That creates a linked shopping item and a “Buy gift” task.
+3. Complete a visit. Choose follow-up options, then confirm.
+4. Open Shopping to see estimated, actual, and remaining totals.
+5. Use Search to find something by name across activities, people, shopping, and notes.
+6. On Home, check **Expected payments** for this week and this month.

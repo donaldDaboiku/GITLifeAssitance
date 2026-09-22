@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use DateTimeImmutable;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use RRule\RRule;
 
 class StoreActivityRequest extends FormRequest
@@ -17,15 +18,18 @@ class StoreActivityRequest extends FormRequest
     {
         return [
             'id' => ['nullable', 'uuid', 'unique:activities,id'],
-            'type' => ['required', 'in:payment,task'],
+            'type' => ['required', 'in:payment,task,birthday,anniversary,visit,appointment,shopping,follow_up,event,maintenance,custom'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
             'category' => ['nullable', 'string', 'max:100'],
             'priority' => ['nullable', 'in:low,normal,high,urgent'],
             'timezone' => ['nullable', 'timezone:all'],
             'location' => ['nullable', 'string', 'max:255'],
+            'contact_id' => ['nullable', 'uuid', Rule::exists('contacts', 'id')->where('user_id', $this->user()?->id)],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'metadata' => ['nullable', 'array'],
             'due_on' => ['required', 'date_format:Y-m-d'],
+            'due_at_time' => ['nullable', 'date_format:H:i:s'],
             'rrule' => ['nullable', 'string', 'max:512', $this->rruleRule()],
             'reminder_offsets_minutes' => ['nullable', 'array', 'max:10'],
             'reminder_offsets_minutes.*' => ['integer', 'min:0', 'max:525600'],
@@ -35,6 +39,13 @@ class StoreActivityRequest extends FormRequest
             'payment.payment_category' => ['nullable', 'string', 'max:100'],
             'payment.payment_method' => ['nullable', 'string', 'max:100'],
             'payment.account_reference' => ['nullable', 'string', 'max:255'],
+            'task' => ['nullable', 'array'],
+            'task.follow_up_after_days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'task.follow_up_rule' => ['nullable', 'array'],
+            'gift' => ['nullable', 'array'],
+            'gift.idea' => ['required_with:gift', 'string', 'max:255'],
+            'gift.budget_minor' => ['nullable', 'integer', 'min:0'],
+            'gift.notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
 

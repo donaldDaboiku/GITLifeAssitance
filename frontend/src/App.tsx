@@ -4,7 +4,10 @@ import { api, type User } from './api'
 import { ActivityFormPage } from './pages/ActivityFormPage'
 import { ActivityPage } from './pages/ActivityPage'
 import { AuthPage } from './pages/AuthPage'
+import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { SearchPage } from './pages/SearchPage'
+import { ShoppingPage } from './pages/ShoppingPage'
 
 export function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -46,12 +49,15 @@ export function App() {
 
   return (
     <>
-      {offline && <p className="banner">You are offline. Reminders already on this phone still apply once sync arrives in a later phase. Saving needs a connection.</p>}
+      {offline && <p className="banner">You are offline. Saving needs a connection.</p>}
       {user && (
         <header className="top">
           <Link to="/" className="brand">GIT Life</Link>
           <nav>
             <Link to="/activities/new">Add</Link>
+            <Link to="/contacts">People</Link>
+            <Link to="/shopping">Shop</Link>
+            <Link to="/search">Search</Link>
             <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
               {theme === 'dark' ? 'Light' : 'Dark'}
             </button>
@@ -64,6 +70,9 @@ export function App() {
           <Route path="/login" element={user ? <Navigate to="/" /> : <AuthPage mode="login" onUser={setUser} />} />
           <Route path="/register" element={user ? <Navigate to="/" /> : <AuthPage mode="register" onUser={setUser} />} />
           <Route path="/" element={user ? <DashboardPage /> : <Navigate to="/login" />} />
+          <Route path="/contacts" element={user ? <ContactsPage /> : <Navigate to="/login" />} />
+          <Route path="/shopping" element={user ? <ShoppingPage /> : <Navigate to="/login" />} />
+          <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
           <Route path="/activities/new" element={user ? <ActivityFormPage /> : <Navigate to="/login" />} />
           <Route path="/activities/:id" element={user ? <ActivityPage /> : <Navigate to="/login" />} />
           <Route path="/activities/:id/edit" element={user ? <ActivityFormPage /> : <Navigate to="/login" />} />

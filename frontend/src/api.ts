@@ -70,15 +70,29 @@ export type Occurrence = {
   snoozed_until: string | null
 }
 
+export type ActivityType =
+  | 'payment'
+  | 'task'
+  | 'birthday'
+  | 'anniversary'
+  | 'visit'
+  | 'appointment'
+  | 'shopping'
+  | 'follow_up'
+  | 'event'
+  | 'maintenance'
+  | 'custom'
+
 export type Activity = {
   id: string
-  type: 'payment' | 'task'
+  type: ActivityType
   title: string
   description: string | null
   category: string | null
   priority: string
   timezone: string
   location: string | null
+  contact_id: string | null
   notes: string | null
   rrule: string | null
   reminder_offsets_minutes: number[]
@@ -91,6 +105,13 @@ export type Activity = {
     payment_method: string | null
     account_reference: string | null
   } | null
+  links?: Array<{
+    id: string
+    relation: string
+    child_activity_id: string
+    child_title?: string
+    child_type?: string
+  }>
   occurrences: Occurrence[]
 }
 
@@ -108,12 +129,72 @@ export type DashboardItem = {
   amount_label: string | null
 }
 
+export type ExpectedBucket = {
+  amount_minor: number
+  currency: string
+  label: string
+}
+
 export type Dashboard = {
   today: DashboardItem[]
   due_today: DashboardItem[]
   upcoming: DashboardItem[]
   payments: DashboardItem[]
   tasks: DashboardItem[]
+  shopping: DashboardItem[]
+  events: DashboardItem[]
+  follow_ups: DashboardItem[]
+  expected_payments: {
+    this_week: ExpectedBucket
+    this_month: ExpectedBucket
+  }
+}
+
+export type Contact = {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  relationship: string | null
+  birthday: string | null
+  anniversary: string | null
+  notes: string | null
+}
+
+export type ShoppingList = {
+  id: string
+  name: string
+  notes: string | null
+  totals: {
+    estimated_minor: number
+    actual_minor: number
+    remaining_minor: number
+    estimated_display: string
+    actual_display: string
+    remaining_display: string
+    label: string
+  }
+  items: Array<{
+    id: string
+    name: string
+    quantity: number
+    unit: string | null
+    estimated_price_minor: number | null
+    actual_price_minor: number | null
+    priority: string
+    purchased: boolean
+    store: string | null
+    notes: string | null
+  }>
+}
+
+export type SearchHit = {
+  kind: string
+  id: string
+  type: string
+  title: string
+  subtitle?: string | null
+  shopping_list_id?: string
 }
 
 export function nairaToKobo(value: string): number {

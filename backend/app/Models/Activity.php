@@ -18,8 +18,11 @@ class Activity extends Model
         'recurrence',
         'reminders',
         'paymentDetail',
-        'task',
+        'task.subtasks',
         'occurrences',
+        'contact',
+        'childLinks.child',
+        'parentLinks.parent',
         'user.preference',
     ];
 
@@ -49,6 +52,11 @@ class Activity extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
+    }
+
     public function recurrence(): HasOne
     {
         return $this->hasOne(ActivityRecurrence::class);
@@ -72,5 +80,15 @@ class Activity extends Model
     public function task(): HasOne
     {
         return $this->hasOne(Task::class);
+    }
+
+    public function childLinks(): HasMany
+    {
+        return $this->hasMany(ActivityLink::class, 'parent_activity_id');
+    }
+
+    public function parentLinks(): HasMany
+    {
+        return $this->hasMany(ActivityLink::class, 'child_activity_id');
     }
 }

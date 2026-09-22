@@ -2,10 +2,13 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OccurrenceController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ShoppingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:10,1')->group(function () {
@@ -21,8 +24,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/devices/{device}', [DeviceController::class, 'destroy']);
 
     Route::get('/dashboard', DashboardController::class);
+    Route::get('/search', SearchController::class);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{reminderNotification}/read', [NotificationController::class, 'read']);
+
+    Route::apiResource('contacts', ContactController::class);
+    Route::get('/shopping-lists', [ShoppingController::class, 'index']);
+    Route::post('/shopping-lists', [ShoppingController::class, 'store']);
+    Route::get('/shopping-lists/{shoppingList}', [ShoppingController::class, 'show']);
+    Route::delete('/shopping-lists/{shoppingList}', [ShoppingController::class, 'destroy']);
+    Route::post('/shopping-lists/{shoppingList}/items', [ShoppingController::class, 'addItem']);
+    Route::put('/shopping-items/{shoppingItem}', [ShoppingController::class, 'updateItem']);
 
     Route::apiResource('activities', ActivityController::class);
 
@@ -30,4 +42,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/occurrences/{occurrence}/complete', [OccurrenceController::class, 'complete']);
     Route::post('/occurrences/{occurrence}/skip', [OccurrenceController::class, 'skip']);
     Route::post('/occurrences/{occurrence}/snooze', [OccurrenceController::class, 'snooze']);
+    Route::post('/activities/{activity}/visit-follow-ups', [OccurrenceController::class, 'visitFollowUps']);
 });
