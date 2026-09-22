@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: gitlife
+      POSTGRES_USER: gitlife
+      POSTGRES_PASSWORD: gitlife
+    volumes:
+      - gitlife_pg:/var/lib/postgresql/data
+
+volumes:
+  gitlife_pg:

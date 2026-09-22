@@ -1,0 +1,6 @@
+backend/vendor
+backend/.env
+backend/database/*.sqlite
+frontend/node_modules
+frontend/dist
+make-icons.php
