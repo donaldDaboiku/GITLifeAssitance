@@ -2,11 +2,12 @@
 
 Remember. Plan. Act.
 
-Phase 1, Phase 2, and Phase 3 are in this repo.
+Phase 1 through Phase 4 are in this repo.
 
 - **Phase 1:** sign up, recurring payments and tasks, reminders, mark paid, installable PWA.
 - **Phase 2:** payment categories/methods and expected week/month totals, contacts, birthdays/anniversaries with gift planning, shopping lists with kobo totals, visits with follow-up offers, activity links, and global search.
 - **Phase 3:** same React app in Tauri (Windows) and Capacitor (Android), tray/widgets/global shortcut, Android notification actions, device registration, and Sanctum token login for native shells.
+- **Phase 4:** sync engine — push/pull with idempotent mutations, tombstones, completed-status protection, offline queue with backoff, and auto-sync while online.
 
 Laravel has not shipped a long-term-support release since version 6. This project uses **Laravel 13**, the current supported release (PHP 8.3+).
 
@@ -121,3 +122,15 @@ npm run cap:open
 Point the device at your API with `VITE_API_URL` (for example `http://192.168.x.x:8000`) before `npm run build`. Local notification actions Open / Done / Mark Paid / Snooze are registered at startup; the FCM token is stored on the device row when push registration succeeds.
 
 See [docs/PHASE3.md](docs/PHASE3.md) for the acceptance checklist.
+
+## Phase 4 sync
+
+While signed in, the app pushes queued mutations and pulls server changes about every 30 seconds (and when the network comes back). Done / Mark paid / Snooze still work offline; they sit in a local queue until sync succeeds.
+
+```powershell
+cd backend
+php artisan migrate
+php artisan test --filter=PhaseFourSyncTest
+```
+
+See [docs/PHASE4.md](docs/PHASE4.md).

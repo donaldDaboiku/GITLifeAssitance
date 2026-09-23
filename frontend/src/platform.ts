@@ -74,4 +74,10 @@ export function setWidgetMode(mode: WidgetMode): void {
 export function clearNativeSession(): void {
   setAccessToken(null)
   setDeviceId(null)
+  try {
+    localStorage.removeItem('gitlife_sync_queue')
+    localStorage.removeItem('gitlife_sync_cursor')
+  } catch {
+    // ignore
+  }
 }

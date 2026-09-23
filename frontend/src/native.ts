@@ -1,5 +1,6 @@
 import { api, type Dashboard } from './api'
 import { detectPlatform, getAccessToken, getDeviceId, setDeviceId } from './platform'
+import { completeOccurrenceOfflineCapable, snoozeOccurrenceOfflineCapable } from './sync/actions'
 
 export async function registerCurrentDevice(options?: {
   name?: string
@@ -44,17 +45,12 @@ export async function registerCurrentDevice(options?: {
 }
 
 export async function applyNotificationAction(action: string, occurrenceId: string): Promise<void> {
-  const path = action === 'mark_paid' || action === 'Mark Paid'
-    ? `/api/occurrences/${occurrenceId}/pay`
-    : action === 'snooze' || action === 'Snooze'
-      ? `/api/occurrences/${occurrenceId}/snooze`
-      : `/api/occurrences/${occurrenceId}/complete`
-
-  const body = path.endsWith('/snooze') ? { preset: '1hour' } : undefined
-  await api(path, {
-    method: 'POST',
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  if (action === 'snooze' || action === 'Snooze') {
+    await snoozeOccurrenceOfflineCapable(occurrenceId, 1)
+    return
+  }
+  const asPayment = action === 'mark_paid' || action === 'Mark Paid'
+  await completeOccurrenceOfflineCapable(occurrenceId, asPayment)
 }
 
 export async function fetchWidgetSummary(): Promise<Dashboard> {

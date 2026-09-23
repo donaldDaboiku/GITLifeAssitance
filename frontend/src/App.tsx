@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { api, type User } from './api'
 import { clearNativeSession, detectPlatform, isNativePlatform } from './platform'
 import { registerCurrentDevice } from './native'
+import { clearSyncState, queueLength } from './sync/queue'
+import { runSync, startSyncLoop } from './sync/client'
 import { ActivityFormPage } from './pages/ActivityFormPage'
 import { ActivityPage } from './pages/ActivityPage'
 import { AuthPage } from './pages/AuthPage'
@@ -19,6 +21,7 @@ export function App() {
   const [ready, setReady] = useState(false)
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'system')
   const [offline, setOffline] = useState(!navigator.onLine)
+  const [queued, setQueued] = useState(() => queueLength())
   const navigate = useNavigate()
   const platform = detectPlatform()
 
@@ -30,11 +33,14 @@ export function App() {
   useEffect(() => {
     const on = () => setOffline(false)
     const off = () => setOffline(true)
+    const onQueue = (event: Event) => setQueued((event as CustomEvent<number>).detail)
     window.addEventListener('online', on)
     window.addEventListener('offline', off)
+    window.addEventListener('gitlife:queue-changed', onQueue as EventListener)
     return () => {
       window.removeEventListener('online', on)
       window.removeEventListener('offline', off)
+      window.removeEventListener('gitlife:queue-changed', onQueue as EventListener)
     }
   }, [])
 
@@ -51,6 +57,8 @@ export function App() {
       name: platform === 'web' ? 'Web browser' : `${platform} app`,
     }).catch(() => undefined)
 
+    const stopSync = startSyncLoop()
+
     let cleanup: (() => void) | undefined
     if (platform === 'windows') {
       void import('./windowsShell').then(async (module) => {
@@ -60,12 +68,16 @@ export function App() {
     if (platform === 'android') {
       void import('./androidShell').then((module) => module.initAndroidShell((path) => navigate(path)))
     }
-    return () => cleanup?.()
+    return () => {
+      stopSync()
+      cleanup?.()
+    }
   }, [user, platform, navigate])
 
   async function logout() {
     await api('/api/logout', { method: 'POST' }).catch(() => undefined)
     clearNativeSession()
+    clearSyncState()
     setUser(null)
   }
 
@@ -75,7 +87,19 @@ export function App() {
 
   return (
     <>
-      {offline && <p className="banner">You are offline. Saving needs a connection.</p>}
+      {offline && (
+        <p className="banner">
+          {queued > 0
+            ? `You are offline. ${queued} change${queued === 1 ? '' : 's'} will sync when you reconnect.`
+            : 'You are offline. Done / Mark paid / Snooze still queue for sync.'}
+        </p>
+      )}
+      {!offline && queued > 0 && (
+        <p className="banner">
+          Syncing {queued} queued change{queued === 1 ? '' : 's'}…
+          <button type="button" className="linkish" onClick={() => void runSync()}>Sync now</button>
+        </p>
+      )}
       {user && (
         <header className="top">
           <Link to="/" className="brand">GIT Life</Link>

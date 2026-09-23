@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api, ApiError, type Dashboard, type DashboardItem } from '../api'
 import { formatDayFirst, formatNaira, statusLabel } from '../format'
+import { completeOccurrenceOfflineCapable, snoozeOccurrenceOfflineCapable } from '../sync/actions'
 
 const empty: Dashboard = {
   today: [],
@@ -34,6 +35,9 @@ export function DashboardPage() {
 
   useEffect(() => {
     void load()
+    const onSynced = () => void load()
+    window.addEventListener('gitlife:synced', onSynced)
+    return () => window.removeEventListener('gitlife:synced', onSynced)
   }, [])
 
   return (
@@ -95,17 +99,27 @@ function Section({ title, items, empty, note, onChange }: { title: string; items
 }
 
 function Actions({ item, onChange }: { item: DashboardItem; onChange: () => Promise<void> }) {
-  async function act(path: string, body?: object) {
-    await api(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined })
-    await onChange()
+  const [note, setNote] = useState('')
+
+  async function finish(asPayment: boolean) {
+    const result = await completeOccurrenceOfflineCapable(item.occurrence_id, asPayment)
+    setNote(result === 'queued' ? 'Saved offline — will sync soon.' : '')
+    await onChange().catch(() => undefined)
+  }
+
+  async function snooze() {
+    const result = await snoozeOccurrenceOfflineCapable(item.occurrence_id, 1)
+    setNote(result === 'queued' ? 'Snooze queued offline.' : '')
+    await onChange().catch(() => undefined)
   }
 
   return (
     <div className="actions">
       {item.type === 'payment'
-        ? <button type="button" onClick={() => void act(`/api/occurrences/${item.occurrence_id}/pay`)}>Mark paid</button>
-        : <button type="button" onClick={() => void act(`/api/occurrences/${item.occurrence_id}/complete`)}>Done</button>}
-      <button type="button" onClick={() => void act(`/api/occurrences/${item.occurrence_id}/snooze`, { preset: '1hour' })}>Snooze 1h</button>
+        ? <button type="button" onClick={() => void finish(true)}>Mark paid</button>
+        : <button type="button" onClick={() => void finish(false)}>Done</button>}
+      <button type="button" onClick={() => void snooze()}>Snooze 1h</button>
+      {note && <p className="muted">{note}</p>}
     </div>
   )
 }

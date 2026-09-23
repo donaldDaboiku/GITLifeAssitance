@@ -9,6 +9,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OccurrenceController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ShoppingController;
+use App\Http\Controllers\SyncController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:10,1')->group(function () {
@@ -25,6 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/devices', [DeviceController::class, 'store']);
     Route::put('/devices/{device}', [DeviceController::class, 'update']);
     Route::delete('/devices/{device}', [DeviceController::class, 'destroy']);
+
+    Route::post('/sync/push', [SyncController::class, 'push']);
+    Route::post('/sync/pull', [SyncController::class, 'pull']);
 
     Route::get('/dashboard', DashboardController::class);
     Route::get('/search', SearchController::class);

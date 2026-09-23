@@ -45,7 +45,7 @@ export function DevicesPage() {
         <h1>Devices</h1>
         <Link to="/">Home</Link>
       </div>
-      <p className="muted">Platform: {detectPlatform()}. Changes sync after a manual refresh until Phase 4.</p>
+      <p className="muted">Platform: {detectPlatform()}. Auto-sync runs about every 30 seconds while online.</p>
       {detectPlatform() === 'windows' && (
         <form className="card" onSubmit={saveShortcut}>
           <h2>Global shortcut</h2>

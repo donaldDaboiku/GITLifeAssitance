@@ -27,6 +27,10 @@ class SyncSchemaTest extends TestCase
             'notification_deliveries',
             'user_preferences',
             'audit_logs',
+            'contacts',
+            'shopping_lists',
+            'shopping_items',
+            'sync_mutations',
         ];
 
         foreach ($tables as $table) {
