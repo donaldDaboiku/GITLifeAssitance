@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
@@ -29,6 +30,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/sync/push', [SyncController::class, 'push']);
     Route::post('/sync/pull', [SyncController::class, 'pull']);
+
+    Route::middleware('throttle:ai')->group(function () {
+        Route::post('/assistant/parse', [AssistantController::class, 'parse']);
+        Route::post('/assistant/confirm', [AssistantController::class, 'confirm']);
+        Route::post('/assistant/ask', [AssistantController::class, 'ask']);
+        Route::post('/assistant/transcribe', [AssistantController::class, 'transcribe']);
+    });
 
     Route::get('/dashboard', DashboardController::class);
     Route::get('/search', SearchController::class);

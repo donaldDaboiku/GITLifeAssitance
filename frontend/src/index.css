@@ -187,6 +187,17 @@ legend { font-size: var(--text-sm); padding: 0 4px; }
   margin: 8px 0;
 }
 .search-box { margin-bottom: 8px; }
+.narrow-wrap { max-width: 560px; }
+.confirm-card {
+  border-color: #0f766e;
+}
+.assistant-answer {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  margin: 0;
+  line-height: 1.45;
+}
 .nav-links {
   display: flex;
   flex-wrap: wrap;

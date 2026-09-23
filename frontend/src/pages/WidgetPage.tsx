@@ -69,7 +69,7 @@ export function WidgetPage() {
           <Section title="Today" items={items} />
           <Section title="Payments" items={payment ? [payment] : []} />
           <Section title="Upcoming" items={next ? [next] : []} />
-          <p className="muted"><Link to="/">Open full app</Link> · <Link to="/capture">AI assistant later (Phase 5)</Link></p>
+          <p className="muted"><Link to="/">Open full app</Link> · <Link to="/assistant">AI assistant</Link></p>
         </>
       )}
     </div>

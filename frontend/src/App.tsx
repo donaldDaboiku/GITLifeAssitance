@@ -7,6 +7,7 @@ import { clearSyncState, queueLength } from './sync/queue'
 import { runSync, startSyncLoop } from './sync/client'
 import { ActivityFormPage } from './pages/ActivityFormPage'
 import { ActivityPage } from './pages/ActivityPage'
+import { AssistantPage } from './pages/AssistantPage'
 import { AuthPage } from './pages/AuthPage'
 import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -106,6 +107,7 @@ export function App() {
           <nav>
             <Link to="/activities/new">Add</Link>
             <Link to="/capture">Capture</Link>
+            <Link to="/assistant">Assistant</Link>
             <Link to="/contacts">People</Link>
             <Link to="/shopping">Shop</Link>
             <Link to="/search">Search</Link>
@@ -124,6 +126,7 @@ export function App() {
           <Route path="/register" element={user ? <Navigate to="/" /> : <AuthPage mode="register" onUser={setUser} />} />
           <Route path="/" element={user ? <DashboardPage /> : <Navigate to="/login" />} />
           <Route path="/capture" element={user ? <QuickCapturePage /> : <Navigate to="/login" />} />
+          <Route path="/assistant" element={user ? <AssistantPage /> : <Navigate to="/login" />} />
           <Route path="/widget" element={user ? <WidgetPage /> : <Navigate to="/login" />} />
           <Route path="/devices" element={user ? <DevicesPage /> : <Navigate to="/login" />} />
           <Route path="/contacts" element={user ? <ContactsPage /> : <Navigate to="/login" />} />

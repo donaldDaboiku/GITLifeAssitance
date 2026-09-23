@@ -2,12 +2,13 @@
 
 Remember. Plan. Act.
 
-Phase 1 through Phase 4 are in this repo.
+Phase 1 through Phase 5 are in this repo.
 
 - **Phase 1:** sign up, recurring payments and tasks, reminders, mark paid, installable PWA.
 - **Phase 2:** payment categories/methods and expected week/month totals, contacts, birthdays/anniversaries with gift planning, shopping lists with kobo totals, visits with follow-up offers, activity links, and global search.
 - **Phase 3:** same React app in Tauri (Windows) and Capacitor (Android), tray/widgets/global shortcut, Android notification actions, device registration, and Sanctum token login for native shells.
 - **Phase 4:** sync engine — push/pull with idempotent mutations, tombstones, completed-status protection, offline queue with backoff, and auto-sync while online.
+- **Phase 5:** AI assistant — parse → confirm cards, server-side tools, usage caps, optional Whisper voice (not browser speech).
 
 Laravel has not shipped a long-term-support release since version 6. This project uses **Laravel 13**, the current supported release (PHP 8.3+).
 
@@ -134,3 +135,26 @@ php artisan test --filter=PhaseFourSyncTest
 ```
 
 See [docs/PHASE4.md](docs/PHASE4.md).
+
+## Phase 5 assistant
+
+Quick Capture now **parses** first, then shows a **confirmation card** before saving. Ask questions under **Assistant**. Voice uploads audio to Whisper when `SPEECH_TO_TEXT_PROVIDER=openai` is set (browser speech is not used).
+
+```powershell
+cd backend
+php artisan migrate
+php artisan test --filter=PhaseFiveAssistantTest
+```
+
+Optional in `backend/.env`:
+
+```
+AI_PROVIDER=openai
+AI_API_KEY=sk-...
+AI_MODEL=gpt-4o-mini
+SPEECH_TO_TEXT_PROVIDER=openai
+SPEECH_TO_TEXT_API_KEY=sk-...
+```
+
+Without keys, the local heuristic parser still handles common phrases. See [docs/PHASE5.md](docs/PHASE5.md).
+
