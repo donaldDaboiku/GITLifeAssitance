@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, type Dashboard, type DashboardItem } from '../api'
+import { ActionToast } from '../components/ActionToast'
 import { formatDayFirst, formatNaira, statusLabel } from '../format'
 import { completeOccurrenceOfflineCapable, snoozeOccurrenceOfflineCapable } from '../sync/actions'
 
@@ -14,6 +15,16 @@ type Suggestion = {
 }
 
 type Filter = 'all' | 'payment' | 'task' | 'people' | 'shopping'
+
+type PendingAction = {
+  occurrenceId: string
+  title: string
+  kind: 'paid' | 'done' | 'snooze'
+  commit: () => Promise<void>
+}
+
+const UNDO_MS = 5_000
+const EXIT_MS = 220
 
 const empty: Dashboard = {
   today: [],
@@ -77,12 +88,52 @@ function greeting(): string {
   return 'Good evening'
 }
 
+function toastCopy(kind: PendingAction['kind']): string {
+  if (kind === 'paid') return 'Marked paid'
+  if (kind === 'snooze') return 'Snoozed 1 hour'
+  return 'Marked done'
+}
+
+function removeOccurrence(data: Dashboard, occurrenceId: string): Dashboard {
+  const drop = (items: DashboardItem[]) => items.filter((item) => item.occurrence_id !== occurrenceId)
+  return {
+    ...data,
+    today: drop(data.today),
+    due_today: drop(data.due_today),
+    upcoming: drop(data.upcoming),
+    payments: drop(data.payments),
+    tasks: drop(data.tasks),
+    shopping: drop(data.shopping),
+    events: drop(data.events),
+    follow_ups: drop(data.follow_ups),
+  }
+}
+
 export function DashboardPage() {
   const [data, setData] = useState<Dashboard>(empty)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [showForecast, setShowForecast] = useState(false)
+  const [leavingIds, setLeavingIds] = useState<Set<string>>(() => new Set())
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set())
+  const [pending, setPending] = useState<PendingAction | null>(null)
+  const undoTimer = useRef<number | null>(null)
+  const exitTimers = useRef<Map<string, number>>(new Map())
+  const stash = useRef<Map<string, DashboardItem>>(new Map())
+  const pendingRef = useRef<PendingAction | null>(null)
+
+  function clearUndoTimer() {
+    if (undoTimer.current != null) {
+      window.clearTimeout(undoTimer.current)
+      undoTimer.current = null
+    }
+  }
+
+  function setPendingAction(action: PendingAction | null) {
+    pendingRef.current = action
+    setPending(action)
+  }
 
   async function load() {
     try {
@@ -110,13 +161,115 @@ export function DashboardPage() {
     void load()
     const onSynced = () => void load()
     window.addEventListener('gitlife:synced', onSynced)
-    return () => window.removeEventListener('gitlife:synced', onSynced)
+    return () => {
+      window.removeEventListener('gitlife:synced', onSynced)
+      clearUndoTimer()
+      exitTimers.current.forEach((id) => window.clearTimeout(id))
+    }
   }, [])
 
-  const timeline = useMemo(() => mergeTimeline(data).filter((item) => matchesFilter(item, filter)), [data, filter])
+  async function commitPending(action: PendingAction) {
+    try {
+      await action.commit()
+      stash.current.delete(action.occurrenceId)
+      setHiddenIds((current) => {
+        const next = new Set(current)
+        next.delete(action.occurrenceId)
+        return next
+      })
+      setData((current) => removeOccurrence(current, action.occurrenceId))
+      await load().catch(() => undefined)
+    } catch {
+      restoreItem(action.occurrenceId)
+      setError('Could not save that change. Try again.')
+    } finally {
+      if (pendingRef.current?.occurrenceId === action.occurrenceId) {
+        setPendingAction(null)
+      }
+    }
+  }
+
+  function restoreItem(occurrenceId: string) {
+    const item = stash.current.get(occurrenceId)
+    stash.current.delete(occurrenceId)
+    setLeavingIds((current) => {
+      const next = new Set(current)
+      next.delete(occurrenceId)
+      return next
+    })
+    setHiddenIds((current) => {
+      const next = new Set(current)
+      next.delete(occurrenceId)
+      return next
+    })
+    if (item) {
+      setData((current) => {
+        if (mergeTimeline(current).some((row) => row.occurrence_id === occurrenceId)) return current
+        return { ...current, today: [item, ...current.today] }
+      })
+    }
+  }
+
+  function scheduleAction(item: DashboardItem, kind: PendingAction['kind'], commit: () => Promise<void>) {
+    const previous = pendingRef.current
+    if (previous && previous.occurrenceId !== item.occurrence_id) {
+      clearUndoTimer()
+      void commitPending(previous)
+    }
+
+    stash.current.set(item.occurrence_id, item)
+    setLeavingIds((current) => new Set(current).add(item.occurrence_id))
+
+    const existingExit = exitTimers.current.get(item.occurrence_id)
+    if (existingExit != null) window.clearTimeout(existingExit)
+    exitTimers.current.set(
+      item.occurrence_id,
+      window.setTimeout(() => {
+        setLeavingIds((current) => {
+          const next = new Set(current)
+          next.delete(item.occurrence_id)
+          return next
+        })
+        setHiddenIds((current) => new Set(current).add(item.occurrence_id))
+        exitTimers.current.delete(item.occurrence_id)
+      }, EXIT_MS),
+    )
+
+    const action: PendingAction = {
+      occurrenceId: item.occurrence_id,
+      title: item.title,
+      kind,
+      commit,
+    }
+    setPendingAction(action)
+    clearUndoTimer()
+    undoTimer.current = window.setTimeout(() => {
+      if (pendingRef.current?.occurrenceId === action.occurrenceId) {
+        void commitPending(action)
+      }
+    }, UNDO_MS)
+  }
+
+  function undo() {
+    const action = pendingRef.current
+    if (!action) return
+    clearUndoTimer()
+    const exit = exitTimers.current.get(action.occurrenceId)
+    if (exit != null) {
+      window.clearTimeout(exit)
+      exitTimers.current.delete(action.occurrenceId)
+    }
+    restoreItem(action.occurrenceId)
+    setPendingAction(null)
+  }
+
+  const visibleTimeline = useMemo(
+    () => mergeTimeline(data).filter((item) => matchesFilter(item, filter) && !hiddenIds.has(item.occurrence_id)),
+    [data, filter, hiddenIds],
+  )
   const dueCount = useMemo(
-    () => mergeTimeline(data).filter((item) => ['overdue', 'urgent', 'due_today'].includes(item.computed_status)).length,
-    [data],
+    () => visibleTimeline.filter((item) => ['overdue', 'urgent', 'due_today'].includes(item.computed_status)).length,
+    [visibleTimeline],
   )
 
   return (
@@ -184,14 +337,31 @@ export function DashboardPage() {
         ))}
       </div>
 
-      {timeline.length === 0 ? (
+      {visibleTimeline.length === 0 ? (
         <EmptyState filter={filter} />
       ) : (
         <ul className="timeline">
-          {timeline.map((item) => (
-            <TimelineItem key={item.occurrence_id} item={item} onChange={load} />
+          {visibleTimeline.map((item) => (
+            <TimelineItem
+              key={item.occurrence_id}
+              item={item}
+              leaving={leavingIds.has(item.occurrence_id)}
+              onDone={() => scheduleAction(item, item.type === 'payment' ? 'paid' : 'done', async () => {
+                await completeOccurrenceOfflineCapable(item.occurrence_id, item.type === 'payment')
+              })}
+              onSnooze={() => scheduleAction(item, 'snooze', async () => {
+                await snoozeOccurrenceOfflineCapable(item.occurrence_id, 1)
+              })}
+            />
           ))}
         </ul>
+      )}
+
+      {pending && (
+        <ActionToast
+          message={`${toastCopy(pending.kind)} · ${pending.title}`}
+          onUndo={undo}
+        />
       )}
     </div>
   )
@@ -221,9 +391,19 @@ function EmptyState({ filter }: { filter: Filter }) {
   )
 }
 
-function TimelineItem({ item, onChange }: { item: DashboardItem; onChange: () => Promise<void> }) {
+function TimelineItem({
+  item,
+  leaving,
+  onDone,
+  onSnooze,
+}: {
+  item: DashboardItem
+  leaving: boolean
+  onDone: () => void
+  onSnooze: () => void
+}) {
   return (
-    <li className={`timeline-item type-${item.type} status-${item.computed_status}`}>
+    <li className={`timeline-item type-${item.type} status-${item.computed_status}${leaving ? ' leaving' : ''}`}>
       <div className="timeline-rail" aria-hidden />
       <div className="timeline-body">
         <Link to={`/activities/${item.activity_id}`} className="timeline-link">
@@ -237,34 +417,13 @@ function TimelineItem({ item, onChange }: { item: DashboardItem; onChange: () =>
             {item.amount_minor != null && ` · Expected ${formatNaira(item.amount_minor)}`}
           </p>
         </Link>
-        <Actions item={item} onChange={onChange} />
+        <div className="actions">
+          {item.type === 'payment'
+            ? <button type="button" onClick={onDone}>Mark paid</button>
+            : <button type="button" onClick={onDone}>Done</button>}
+          <button type="button" className="ghost" onClick={onSnooze}>Snooze 1h</button>
+        </div>
       </div>
     </li>
-  )
-}
-
-function Actions({ item, onChange }: { item: DashboardItem; onChange: () => Promise<void> }) {
-  const [note, setNote] = useState('')
-
-  async function finish(asPayment: boolean) {
-    const result = await completeOccurrenceOfflineCapable(item.occurrence_id, asPayment)
-    setNote(result === 'queued' ? 'Saved offline — will sync soon.' : '')
-    await onChange().catch(() => undefined)
-  }
-
-  async function snooze() {
-    const result = await snoozeOccurrenceOfflineCapable(item.occurrence_id, 1)
-    setNote(result === 'queued' ? 'Snooze queued offline.' : '')
-    await onChange().catch(() => undefined)
-  }
-
-  return (
-    <div className="actions">
-      {item.type === 'payment'
-        ? <button type="button" onClick={() => void finish(true)}>Mark paid</button>
-        : <button type="button" onClick={() => void finish(false)}>Done</button>}
-      <button type="button" className="ghost" onClick={() => void snooze()}>Snooze 1h</button>
-      {note && <p className="muted">{note}</p>}
-    </div>
   )
 }

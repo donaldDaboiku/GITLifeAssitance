@@ -18,6 +18,20 @@ type Proposal = {
   requires_confirmation: boolean
 }
 
+const EXAMPLES = [
+  'Pay DSTV ₦24,000 on the 15th',
+  'Mum’s birthday March 3',
+  'Buy rice and oil this weekend',
+]
+
+function typeLabel(type: string | null): string {
+  if (!type) return 'Item'
+  if (type === 'payment') return 'Payment'
+  if (type === 'task') return 'Task'
+  if (type === 'shopping') return 'Shopping'
+  return type.replaceAll('_', ' ')
+}
+
 export function QuickCapturePage() {
   const navigate = useNavigate()
   const [text, setText] = useState('')
@@ -29,16 +43,27 @@ export function QuickCapturePage() {
   const [voiceHint, setVoiceHint] = useState('')
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const confirmRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (proposal) {
+          setProposal(null)
+          return
+        }
         navigate('/')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [navigate])
+  }, [navigate, proposal])
+
+  useEffect(() => {
+    if (proposal) {
+      confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [proposal])
 
   async function parseText(value: string) {
     setSaving(true)
@@ -148,14 +173,26 @@ export function QuickCapturePage() {
     }
   }
 
+  const step = proposal ? 'confirm' : 'capture'
+  const type = proposal?.type ?? 'task'
+
   return (
-    <div className="stack narrow-wrap">
-      <form className="card narrow" onSubmit={(event) => void submit(event)}>
-        <h1>What do you want to remember?</h1>
-        <p className="muted">Ctrl+Alt+Space on Windows. Esc closes. Voice uses Whisper when configured — not browser speech.</p>
-        <label>
-          Capture
+    <div className={`capture-screen step-${step}`}>
+      <div className="capture-top">
+        <button type="button" className="ghost close-capture" onClick={() => navigate('/')}>
+          Close
+        </button>
+        <span className="capture-step-label">{step === 'capture' ? 'Step 1 of 2' : 'Step 2 of 2'}</span>
+      </div>
+
+      {step === 'capture' && (
+        <form className="capture-hero" onSubmit={(event) => void submit(event)}>
+          <p className="eyebrow">GIT Life</p>
+          <h1>What do you want to remember?</h1>
+          <p className="capture-lead">Say it like you’d text yourself — rent, birthdays, shopping, visits.</p>
+
           <textarea
+            className="capture-input"
             autoFocus
             rows={4}
             value={text}
@@ -163,70 +200,122 @@ export function QuickCapturePage() {
             placeholder="Pay internet ₦20,000 monthly on the 25th…"
             required
           />
-        </label>
-        {error && <p className="error">{error}</p>}
-        {voiceHint && <p className="muted">{voiceHint}</p>}
-        <div className="actions">
-          <button type="submit" disabled={saving}>{saving ? 'Reading…' : 'Parse'}</button>
-          <button type="button" onClick={() => void toggleVoice()}>{recording ? 'Stop voice' : 'Voice'}</button>
-          <button type="button" onClick={() => navigate('/')}>Cancel</button>
-          <Link to="/assistant">Ask assistant</Link>
-        </div>
-      </form>
 
-      {proposal && (
-        <section className="card narrow confirm-card">
-          <h2>Confirm before saving</h2>
-          <p className="muted">
-            Confidence {(proposal.confidence * 100).toFixed(0)}%
-            {proposal.requires_confirmation ? ' · confirmation required' : ''}
-          </p>
-          <label>Title
-            <input
-              value={proposal.title ?? ''}
-              onChange={(event) => setProposal({ ...proposal, title: event.target.value })}
-            />
-          </label>
-          <label>Type
-            <select
-              value={proposal.type ?? 'task'}
-              onChange={(event) => setProposal({ ...proposal, type: event.target.value })}
-            >
-              {['payment', 'task', 'shopping', 'birthday', 'visit', 'appointment', 'event', 'custom'].map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </label>
-          <label>Due on
-            <input
-              type="date"
-              value={proposal.due_on ?? ''}
-              onChange={(event) => setProposal({ ...proposal, due_on: event.target.value })}
-            />
-          </label>
-          {proposal.type === 'payment' && (
-            <label>Amount (₦)
-              <input value={amountInput} onChange={(event) => setAmountInput(event.target.value)} placeholder="20000" />
-            </label>
-          )}
-          {proposal.rrule && <p className="muted">Recurrence: {proposal.rrule}</p>}
-          {proposal.missing_fields.length > 0 && (
-            <p className="error">Missing: {proposal.missing_fields.join(', ')}</p>
-          )}
-          {proposal.ambiguities.length > 0 && (
-            <ul className="muted">
-              {proposal.ambiguities.map((item) => <li key={item}>{item}</li>)}
-            </ul>
-          )}
-          <div className="actions">
+          <div className="example-row" aria-label="Examples">
+            {EXAMPLES.map((example) => (
+              <button
+                key={example}
+                type="button"
+                className="chip example-chip"
+                onClick={() => setText(example)}
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+
+          {error && <p className="error">{error}</p>}
+          {voiceHint && <p className="muted">{voiceHint}</p>}
+
+          <div className="capture-actions">
+            <button type="submit" className="capture-primary" disabled={saving || !text.trim()}>
+              {saving ? 'Reading…' : 'Remember this'}
+            </button>
             <button
               type="button"
-              disabled={saving || !canConfirm(proposal, amountInput, text)}
-              onClick={() => void confirm()}
+              className={`ghost voice-btn${recording ? ' recording' : ''}`}
+              onClick={() => void toggleVoice()}
             >
-              {saving ? 'Saving…' : 'Save'}
+              {recording ? 'Stop voice' : 'Voice'}
             </button>
-            <button type="button" onClick={() => setProposal(null)}>Edit capture</button>
+          </div>
+
+          <p className="muted capture-hint">
+            Esc closes · Prefer forms? <Link to="/activities/new">Add with form</Link>
+            {' · '}
+            <Link to="/assistant">Ask assistant</Link>
+          </p>
+        </form>
+      )}
+
+      {proposal && (
+        <section
+          ref={confirmRef}
+          className={`confirm-step type-${type}`}
+          aria-label="Confirm before saving"
+        >
+          <div className="confirm-rail" aria-hidden />
+          <div className="confirm-body">
+            <p className="eyebrow">Check this first</p>
+            <h2>Looks right?</h2>
+            <p className="muted">
+              Nothing is saved until you confirm.
+              {' · '}
+              {(proposal.confidence * 100).toFixed(0)}% confidence
+              {proposal.requires_confirmation ? ' · needs your eyes' : ''}
+            </p>
+
+            <div className="confirm-preview">
+              <span className={`type-pill type-${type}`}>{typeLabel(proposal.type)}</span>
+              <strong className="confirm-title">{proposal.title?.trim() || text.trim() || 'Untitled'}</strong>
+              {proposal.due_on && <span className="muted">Due {proposal.due_on.split('-').reverse().join('/')}</span>}
+              {proposal.type === 'payment' && amountInput && (
+                <span className="muted">Expected ₦{amountInput}</span>
+              )}
+            </div>
+
+            <label>Title
+              <input
+                value={proposal.title ?? ''}
+                onChange={(event) => setProposal({ ...proposal, title: event.target.value })}
+              />
+            </label>
+            <label>Type
+              <select
+                value={proposal.type ?? 'task'}
+                onChange={(event) => setProposal({ ...proposal, type: event.target.value })}
+              >
+                {['payment', 'task', 'shopping', 'birthday', 'visit', 'appointment', 'event', 'custom'].map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <label>Due on
+              <input
+                type="date"
+                value={proposal.due_on ?? ''}
+                onChange={(event) => setProposal({ ...proposal, due_on: event.target.value })}
+              />
+            </label>
+            {proposal.type === 'payment' && (
+              <label>Amount (₦)
+                <input value={amountInput} onChange={(event) => setAmountInput(event.target.value)} placeholder="20000" />
+              </label>
+            )}
+            {proposal.rrule && <p className="muted">Recurrence: {proposal.rrule}</p>}
+            {proposal.missing_fields.length > 0 && (
+              <p className="error">Still need: {proposal.missing_fields.join(', ')}</p>
+            )}
+            {proposal.ambiguities.length > 0 && (
+              <ul className="muted ambiguity-list">
+                {proposal.ambiguities.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            )}
+            {error && <p className="error">{error}</p>}
+
+            <div className="capture-actions">
+              <button
+                type="button"
+                className="capture-primary"
+                disabled={saving || !canConfirm(proposal, amountInput, text)}
+                onClick={() => void confirm()}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="ghost" onClick={() => setProposal(null)}>
+                Edit capture
+              </button>
+            </div>
           </div>
         </section>
       )}

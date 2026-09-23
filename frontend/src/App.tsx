@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { api, type User } from './api'
 import { BottomNav } from './components/BottomNav'
@@ -27,7 +27,9 @@ export function App() {
   const [offline, setOffline] = useState(!navigator.onLine)
   const [queued, setQueued] = useState(() => queueLength())
   const navigate = useNavigate()
+  const location = useLocation()
   const platform = detectPlatform()
+  const captureMode = location.pathname.startsWith('/capture')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -108,13 +110,13 @@ export function App() {
           <button type="button" className="linkish" onClick={() => void runSync()}>Sync now</button>
         </p>
       )}
-      {user && (
+      {user && !captureMode && (
         <header className="top slim">
           <Link to="/" className="brand">GIT Life</Link>
           <span className="brand-tag">Remember. Plan. Act.</span>
         </header>
       )}
-      <main className={user ? 'with-bottom-nav' : undefined}>
+      <main className={user && !captureMode ? 'with-bottom-nav' : user && captureMode ? 'capture-main' : undefined}>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <AuthPage mode="login" onUser={setUser} />} />
           <Route path="/register" element={user ? <Navigate to="/" /> : <AuthPage mode="register" onUser={setUser} />} />
