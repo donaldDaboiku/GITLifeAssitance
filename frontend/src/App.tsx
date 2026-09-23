@@ -14,6 +14,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { QuickCapturePage } from './pages/QuickCapturePage'
 import { SearchPage } from './pages/SearchPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { ShoppingPage } from './pages/ShoppingPage'
 import { WidgetPage } from './pages/WidgetPage'
 
@@ -112,6 +113,7 @@ export function App() {
             <Link to="/shopping">Shop</Link>
             <Link to="/search">Search</Link>
             <Link to="/devices">Devices</Link>
+            <Link to="/settings">Settings</Link>
             {isNativePlatform() && <Link to="/widget">Widget</Link>}
             <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
               {theme === 'dark' ? 'Light' : 'Dark'}
@@ -129,6 +131,7 @@ export function App() {
           <Route path="/assistant" element={user ? <AssistantPage /> : <Navigate to="/login" />} />
           <Route path="/widget" element={user ? <WidgetPage /> : <Navigate to="/login" />} />
           <Route path="/devices" element={user ? <DevicesPage /> : <Navigate to="/login" />} />
+          <Route path="/settings" element={user ? <SettingsPage onUser={setUser} /> : <Navigate to="/login" />} />
           <Route path="/contacts" element={user ? <ContactsPage /> : <Navigate to="/login" />} />
           <Route path="/shopping" element={user ? <ShoppingPage /> : <Navigate to="/login" />} />
           <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />

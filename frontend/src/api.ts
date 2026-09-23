@@ -74,6 +74,10 @@ export type User = {
   timezone: string
   currency: string
   theme: string
+  morning_summary_enabled?: boolean
+  morning_summary_time?: string
+  due_soon_days?: number
+  reminder_time?: string
 }
 
 export type Occurrence = {
@@ -164,6 +168,7 @@ export type Dashboard = {
   expected_payments: {
     this_week: ExpectedBucket
     this_month: ExpectedBucket
+    next_month: ExpectedBucket
   }
 }
 

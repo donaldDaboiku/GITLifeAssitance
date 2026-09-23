@@ -4,6 +4,15 @@ import { api, ApiError, type Dashboard, type DashboardItem } from '../api'
 import { formatDayFirst, formatNaira, statusLabel } from '../format'
 import { completeOccurrenceOfflineCapable, snoozeOccurrenceOfflineCapable } from '../sync/actions'
 
+type Suggestion = {
+  id: string
+  kind: string
+  title: string
+  reason: string
+  requires_confirmation: boolean
+  payload: Record<string, unknown>
+}
+
 const empty: Dashboard = {
   today: [],
   due_today: [],
@@ -16,21 +25,36 @@ const empty: Dashboard = {
   expected_payments: {
     this_week: { amount_minor: 0, currency: 'NGN', label: 'expected' },
     this_month: { amount_minor: 0, currency: 'NGN', label: 'expected' },
+    next_month: { amount_minor: 0, currency: 'NGN', label: 'expected' },
   },
 }
 
 export function DashboardPage() {
   const [data, setData] = useState<Dashboard>(empty)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [error, setError] = useState('')
   const location = useLocation()
 
   async function load() {
     try {
       setData(await api<Dashboard>('/api/dashboard'))
+      const body = await api<{ data: Suggestion[] }>('/api/suggestions')
+      setSuggestions(body.data)
       setError('')
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Could not load the dashboard.')
     }
+  }
+
+  async function confirmSuggestion(suggestion: Suggestion) {
+    await api('/api/suggestions/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        suggestion_id: suggestion.id,
+        payload: suggestion.payload,
+      }),
+    })
+    await load()
   }
 
   useEffect(() => {
@@ -51,6 +75,7 @@ export function DashboardPage() {
         <Link to="/contacts">People</Link>
         <Link to="/shopping">Shopping</Link>
         <Link to="/search">Search</Link>
+        <Link to="/settings">Settings</Link>
       </nav>
       {error && <p className="error">{error}</p>}
       <section className="card">
@@ -59,8 +84,24 @@ export function DashboardPage() {
         <div className="totals">
           <div>This week · expected {formatNaira(data.expected_payments.this_week.amount_minor)}</div>
           <div>This month · expected {formatNaira(data.expected_payments.this_month.amount_minor)}</div>
+          <div>Next month · expected {formatNaira(data.expected_payments.next_month.amount_minor)}</div>
         </div>
       </section>
+      {suggestions.length > 0 && (
+        <section className="card">
+          <h2>Suggested follow-ups</h2>
+          <p className="muted">Nothing is created until you confirm.</p>
+          <ul className="list">
+            {suggestions.map((suggestion) => (
+              <li key={suggestion.id}>
+                <strong>{suggestion.title}</strong>
+                <p className="muted">{suggestion.reason}</p>
+                <button type="button" onClick={() => void confirmSuggestion(suggestion)}>Confirm</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <Section title="Today" items={data.today} empty="Nothing due today." onChange={load} />
       <Section title="Due today" items={data.due_today} empty="No items are due today." onChange={load} />
       <Section title="Upcoming" items={data.upcoming} empty="Nothing coming up." onChange={load} />

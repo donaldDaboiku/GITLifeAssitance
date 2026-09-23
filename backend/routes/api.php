@@ -8,8 +8,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OccurrenceController;
+use App\Http\Controllers\PreferenceController;
+use App\Http\Controllers\PrivacyController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ShoppingController;
+use App\Http\Controllers\SuggestionController;
 use App\Http\Controllers\SyncController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +40,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/assistant/ask', [AssistantController::class, 'ask']);
         Route::post('/assistant/transcribe', [AssistantController::class, 'transcribe']);
     });
+
+    Route::get('/preferences', [PreferenceController::class, 'show']);
+    Route::put('/preferences', [PreferenceController::class, 'update']);
+    Route::get('/suggestions', [SuggestionController::class, 'index']);
+    Route::post('/suggestions/confirm', [SuggestionController::class, 'confirm']);
+
+    Route::get('/privacy/notice', [PrivacyController::class, 'notice']);
+    Route::post('/privacy/accept', [PrivacyController::class, 'accept']);
+    Route::get('/privacy/export', [PrivacyController::class, 'export']);
+    Route::delete('/privacy/account', [PrivacyController::class, 'destroy']);
 
     Route::get('/dashboard', DashboardController::class);
     Route::get('/search', SearchController::class);

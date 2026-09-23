@@ -16,6 +16,8 @@ class PaymentForecastService
         $weekEnd = $now->endOfWeek(CarbonImmutable::SUNDAY)->endOfDay();
         $monthStart = $now->startOfMonth()->startOfDay();
         $monthEnd = $now->endOfMonth()->endOfDay();
+        $nextMonthStart = $now->addMonthNoOverflow()->startOfMonth()->startOfDay();
+        $nextMonthEnd = $now->addMonthNoOverflow()->endOfMonth()->endOfDay();
 
         $payments = ActivityOccurrence::query()
             ->where('user_id', $user->id)
@@ -34,17 +36,16 @@ class PaymentForecastService
                 ->sum(fn (ActivityOccurrence $occurrence) => $occurrence->activity->paymentDetail?->amount_minor ?? 0);
         };
 
+        $bucket = fn (int $amount): array => [
+            'amount_minor' => $amount,
+            'currency' => 'NGN',
+            'label' => 'expected',
+        ];
+
         return [
-            'this_week' => [
-                'amount_minor' => $sum($weekStart, $weekEnd),
-                'currency' => 'NGN',
-                'label' => 'expected',
-            ],
-            'this_month' => [
-                'amount_minor' => $sum($monthStart, $monthEnd),
-                'currency' => 'NGN',
-                'label' => 'expected',
-            ],
+            'this_week' => $bucket($sum($weekStart, $weekEnd)),
+            'this_month' => $bucket($sum($monthStart, $monthEnd)),
+            'next_month' => $bucket($sum($nextMonthStart, $nextMonthEnd)),
         ];
     }
 }
