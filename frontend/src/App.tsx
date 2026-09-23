@@ -1,7 +1,8 @@
 import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { api, type User } from './api'
-import { clearNativeSession, detectPlatform, isNativePlatform } from './platform'
+import { BottomNav } from './components/BottomNav'
+import { clearNativeSession, detectPlatform } from './platform'
 import { registerCurrentDevice } from './native'
 import { clearSyncState, queueLength } from './sync/queue'
 import { runSync, startSyncLoop } from './sync/client'
@@ -12,6 +13,7 @@ import { AuthPage } from './pages/AuthPage'
 import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DevicesPage } from './pages/DevicesPage'
+import { MorePage } from './pages/MorePage'
 import { QuickCapturePage } from './pages/QuickCapturePage'
 import { SearchPage } from './pages/SearchPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -83,6 +85,10 @@ export function App() {
     setUser(null)
   }
 
+  function cycleTheme() {
+    setTheme((current) => (current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system'))
+  }
+
   if (!ready) {
     return <p className="center">Loading…</p>
   }
@@ -103,26 +109,12 @@ export function App() {
         </p>
       )}
       {user && (
-        <header className="top">
+        <header className="top slim">
           <Link to="/" className="brand">GIT Life</Link>
-          <nav>
-            <Link to="/activities/new">Add</Link>
-            <Link to="/capture">Capture</Link>
-            <Link to="/assistant">Assistant</Link>
-            <Link to="/contacts">People</Link>
-            <Link to="/shopping">Shop</Link>
-            <Link to="/search">Search</Link>
-            <Link to="/devices">Devices</Link>
-            <Link to="/settings">Settings</Link>
-            {isNativePlatform() && <Link to="/widget">Widget</Link>}
-            <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-              {theme === 'dark' ? 'Light' : 'Dark'}
-            </button>
-            <button type="button" onClick={() => void logout()}>Log out</button>
-          </nav>
+          <span className="brand-tag">Remember. Plan. Act.</span>
         </header>
       )}
-      <main>
+      <main className={user ? 'with-bottom-nav' : undefined}>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <AuthPage mode="login" onUser={setUser} />} />
           <Route path="/register" element={user ? <Navigate to="/" /> : <AuthPage mode="register" onUser={setUser} />} />
@@ -132,6 +124,7 @@ export function App() {
           <Route path="/widget" element={user ? <WidgetPage /> : <Navigate to="/login" />} />
           <Route path="/devices" element={user ? <DevicesPage /> : <Navigate to="/login" />} />
           <Route path="/settings" element={user ? <SettingsPage onUser={setUser} /> : <Navigate to="/login" />} />
+          <Route path="/more" element={user ? <MorePage theme={theme} onTheme={cycleTheme} onLogout={logout} /> : <Navigate to="/login" />} />
           <Route path="/contacts" element={user ? <ContactsPage /> : <Navigate to="/login" />} />
           <Route path="/shopping" element={user ? <ShoppingPage /> : <Navigate to="/login" />} />
           <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
@@ -140,6 +133,7 @@ export function App() {
           <Route path="/activities/:id/edit" element={user ? <ActivityFormPage /> : <Navigate to="/login" />} />
         </Routes>
       </main>
+      {user && <BottomNav />}
     </>
   )
 }

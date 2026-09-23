@@ -1,0 +1,20 @@
+# Production edge proxy: TLS + SPA + API under one origin.
+{$DOMAIN:localhost} {
+	encode gzip
+
+	# Laravel API + Sanctum
+	handle /api/* {
+		reverse_proxy api:80
+	}
+	handle /sanctum/* {
+		reverse_proxy api:80
+	}
+	handle /up {
+		reverse_proxy api:80
+	}
+
+	# Built React PWA
+	handle {
+		reverse_proxy web:80
+	}
+}

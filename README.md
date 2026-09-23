@@ -12,6 +12,7 @@ Phase 1 through Phase 6 are in this repo.
 - **Phase 6:** morning summary, full expected payment forecast (incl. next month), confirm-only follow-up suggestions, settings.
 - **Privacy:** NDPA privacy notice, data export, and account deletion.
 - **Web Push:** PWA push subscriptions stored on web devices; reminders go through in-app, email, and Web Push.
+- **Production deploy:** Docker Compose with Caddy (TLS), FrankenPHP API, SPA, Postgres, queue worker, and scheduler.
 
 Laravel has not shipped a long-term-support release since version 6. This project uses **Laravel 13**, the current supported release (PHP 8.3+).
 
@@ -198,6 +199,18 @@ npx --yes web-push generate-vapid-keys
 ```
 
 Paste into `backend/.env`, restart the API, then use Enable push on `http://localhost:5173` (HTTPS or localhost required). See [docs/WEBPUSH.md](docs/WEBPUSH.md).
+
+## Production deploy
+
+```powershell
+copy .env.production.example .env.production
+# fill APP_KEY, DB_PASSWORD, domain, mail…
+# or:
+.\deploy\up.ps1
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+See [docs/DEPLOY.md](docs/DEPLOY.md) for the full checklist.
 
 
 

@@ -10,3 +10,6 @@ frontend/android/build
 frontend/android/local.properties
 frontend/android/captures
 make-icons.php
+.env
+.env.production
+!.env.production.example
