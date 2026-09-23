@@ -11,6 +11,7 @@ Phase 1 through Phase 6 are in this repo.
 - **Phase 5:** AI assistant — parse → confirm cards, server-side tools, usage caps, optional Whisper voice (not browser speech).
 - **Phase 6:** morning summary, full expected payment forecast (incl. next month), confirm-only follow-up suggestions, settings.
 - **Privacy:** NDPA privacy notice, data export, and account deletion.
+- **Web Push:** PWA push subscriptions stored on web devices; reminders go through in-app, email, and Web Push.
 
 Laravel has not shipped a long-term-support release since version 6. This project uses **Laravel 13**, the current supported release (PHP 8.3+).
 
@@ -184,6 +185,20 @@ php artisan test --filter=PrivacyNdpaTest
 ```
 
 See [docs/PRIVACY.md](docs/PRIVACY.md).
+
+## Web Push
+
+Enable browser reminders under **Settings → Web push**. Generate keys once:
+
+```powershell
+cd backend
+php artisan webpush:vapid
+# if that fails on Windows OpenSSL:
+npx --yes web-push generate-vapid-keys
+```
+
+Paste into `backend/.env`, restart the API, then use Enable push on `http://localhost:5173` (HTTPS or localhost required). See [docs/WEBPUSH.md](docs/WEBPUSH.md).
+
 
 
 

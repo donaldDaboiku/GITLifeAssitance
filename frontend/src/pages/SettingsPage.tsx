@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError, type User } from '../api'
 import { clearNativeSession, getAccessToken } from '../platform'
+import { disableWebPush, enableWebPush, pushSupported } from '../push'
 import { clearSyncState } from '../sync/queue'
 
 type Preferences = {
@@ -22,6 +23,7 @@ export function SettingsPage({ onUser }: { onUser?: (user: User | null) => void 
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [saving, setSaving] = useState(false)
+  const [pushStatus, setPushStatus] = useState('')
   const [password, setPassword] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -173,6 +175,35 @@ export function SettingsPage({ onUser }: { onUser?: (user: User | null) => void 
         {saved && <p className="muted">{saved}</p>}
         <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save settings'}</button>
       </form>
+
+      {pushSupported() && (
+        <section className="card narrow">
+          <h2>Web push</h2>
+          <p className="muted">Browser notifications for reminders while the PWA is closed. Requires VAPID keys on the API.</p>
+          <div className="actions">
+            <button
+              type="button"
+              onClick={() => void enableWebPush().then((result) => {
+                setPushStatus(
+                  result === 'granted' ? 'Push enabled on this browser.'
+                    : result === 'denied' ? 'Notification permission denied.'
+                      : result === 'unconfigured' ? 'Server VAPID keys are not set yet.'
+                        : 'Push is not supported here.',
+                )
+              })}
+            >
+              Enable push
+            </button>
+            <button
+              type="button"
+              onClick={() => void disableWebPush().then(() => setPushStatus('Push disabled on this browser.'))}
+            >
+              Disable push
+            </button>
+          </div>
+          {pushStatus && <p className="muted">{pushStatus}</p>}
+        </section>
+      )}
 
       <section className="card narrow">
         <h2>Privacy (NDPA)</h2>

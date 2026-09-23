@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OccurrenceController;
 use App\Http\Controllers\PreferenceController;
 use App\Http\Controllers\PrivacyController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ShoppingController;
 use App\Http\Controllers\SuggestionController;
@@ -50,6 +51,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/privacy/accept', [PrivacyController::class, 'accept']);
     Route::get('/privacy/export', [PrivacyController::class, 'export']);
     Route::delete('/privacy/account', [PrivacyController::class, 'destroy']);
+
+    Route::get('/push/vapid-public-key', [PushSubscriptionController::class, 'vapidPublicKey']);
+    Route::post('/push/subscribe', [PushSubscriptionController::class, 'subscribe']);
+    Route::delete('/push/subscribe', [PushSubscriptionController::class, 'unsubscribe']);
 
     Route::get('/dashboard', DashboardController::class);
     Route::get('/search', SearchController::class);

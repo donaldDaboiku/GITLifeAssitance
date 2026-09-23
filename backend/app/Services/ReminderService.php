@@ -7,6 +7,7 @@ use App\Models\ActivityOccurrence;
 use App\Models\NotificationDelivery;
 use App\Notifications\Channels\EmailChannel;
 use App\Notifications\Channels\InAppChannel;
+use App\Notifications\Channels\WebPushChannel;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -18,7 +19,7 @@ class ReminderService
 
     public function __construct()
     {
-        $this->channels = [new InAppChannel, new EmailChannel];
+        $this->channels = [new InAppChannel, new EmailChannel, new WebPushChannel];
     }
 
     /**
