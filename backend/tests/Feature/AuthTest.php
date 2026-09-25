@@ -10,6 +10,12 @@ class AuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_unauthenticated_api_user_returns_json_401(): void
+    {
+        $this->getJson('/api/user')
+            ->assertUnauthorized();
+    }
+
     public function test_register_login_and_device_token(): void
     {
         $this->withHeader('Origin', 'http://localhost')

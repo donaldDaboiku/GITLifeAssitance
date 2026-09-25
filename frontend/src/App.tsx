@@ -4,6 +4,7 @@ import { api, type User } from './api'
 import { BottomNav } from './components/BottomNav'
 import { clearNativeSession, detectPlatform } from './platform'
 import { registerCurrentDevice } from './native'
+import { isOnboardingDone, migrateOnboardingIfNeeded } from './onboarding'
 import { clearSyncState, queueLength } from './sync/queue'
 import { runSync, startSyncLoop } from './sync/client'
 import { ActivityFormPage } from './pages/ActivityFormPage'
@@ -14,6 +15,7 @@ import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { MorePage } from './pages/MorePage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { QuickCapturePage } from './pages/QuickCapturePage'
 import { SearchPage } from './pages/SearchPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -23,13 +25,14 @@ import { WidgetPage } from './pages/WidgetPage'
 export function App() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'system')
   const [offline, setOffline] = useState(!navigator.onLine)
   const [queued, setQueued] = useState(() => queueLength())
   const navigate = useNavigate()
   const location = useLocation()
   const platform = detectPlatform()
-  const captureMode = location.pathname.startsWith('/capture')
+  const immersion = location.pathname.startsWith('/capture') || location.pathname.startsWith('/onboarding')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -56,6 +59,27 @@ export function App() {
       .catch(() => setUser(null))
       .finally(() => setReady(true))
   }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setNeedsOnboarding(false)
+      return
+    }
+    if (isOnboardingDone()) {
+      setNeedsOnboarding(false)
+      return
+    }
+
+    // New users: send to onboarding immediately. Legacy users who already
+    // accepted privacy are migrated off the tour when preferences load.
+    setNeedsOnboarding(true)
+    void api<{ data: { privacy_notice_accepted_at: string | null } }>('/api/preferences')
+      .then((body) => {
+        migrateOnboardingIfNeeded(Boolean(body.data.privacy_notice_accepted_at))
+        setNeedsOnboarding(!isOnboardingDone())
+      })
+      .catch(() => undefined)
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -95,6 +119,11 @@ export function App() {
     return <p className="center">Loading…</p>
   }
 
+  const onboardingPath = location.pathname.startsWith('/onboarding')
+  if (user && needsOnboarding && !onboardingPath) {
+    return <Navigate to="/onboarding" replace />
+  }
+
   return (
     <>
       {offline && (
@@ -110,16 +139,22 @@ export function App() {
           <button type="button" className="linkish" onClick={() => void runSync()}>Sync now</button>
         </p>
       )}
-      {user && !captureMode && (
+      {user && !immersion && (
         <header className="top slim">
           <Link to="/" className="brand">GIT Life</Link>
           <span className="brand-tag">Remember. Plan. Act.</span>
         </header>
       )}
-      <main className={user && !captureMode ? 'with-bottom-nav' : user && captureMode ? 'capture-main' : undefined}>
+      <main className={user && !immersion ? 'with-bottom-nav' : user && immersion ? 'capture-main' : undefined}>
         <Routes>
-          <Route path="/login" element={user ? <Navigate to="/" /> : <AuthPage mode="login" onUser={setUser} />} />
-          <Route path="/register" element={user ? <Navigate to="/" /> : <AuthPage mode="register" onUser={setUser} />} />
+          <Route path="/login" element={user ? <Navigate to={needsOnboarding ? '/onboarding' : '/'} /> : <AuthPage mode="login" onUser={setUser} />} />
+          <Route path="/register" element={user ? <Navigate to={needsOnboarding ? '/onboarding' : '/'} /> : <AuthPage mode="register" onUser={setUser} />} />
+          <Route
+            path="/onboarding"
+            element={user
+              ? <OnboardingPage onUser={setUser} onComplete={() => setNeedsOnboarding(false)} />
+              : <Navigate to="/login" />}
+          />
           <Route path="/" element={user ? <DashboardPage /> : <Navigate to="/login" />} />
           <Route path="/capture" element={user ? <QuickCapturePage /> : <Navigate to="/login" />} />
           <Route path="/assistant" element={user ? <AssistantPage /> : <Navigate to="/login" />} />

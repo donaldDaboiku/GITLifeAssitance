@@ -32,6 +32,7 @@ class AssistantService
     {
         $this->usage->assertWithinLimits($user);
         $validated = $this->parser->validateProposal($proposal);
+        $validated = $this->parser->resolveFilledFields($validated);
 
         abort_if($validated['intent'] !== 'create_activity', 422, 'Only create_activity proposals can be confirmed.');
         abort_if(! empty($validated['missing_fields']), 422, 'Fill missing fields before confirming.');

@@ -18,6 +18,17 @@ type Proposal = {
   requires_confirmation: boolean
 }
 
+type SpeechRecognitionLike = {
+  lang: string
+  interimResults: boolean
+  continuous: boolean
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
+  onerror: ((event: { error?: string }) => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
 const EXAMPLES = [
   'Pay DSTV ₦24,000 on the 15th',
   'Mum’s birthday March 3',
@@ -32,6 +43,38 @@ function typeLabel(type: string | null): string {
   return type.replaceAll('_', ' ')
 }
 
+function resolvedMissing(proposal: Proposal, amountInput: string, text: string): string[] {
+  return proposal.missing_fields.filter((field) => {
+    if (field === 'amount_minor') {
+      return !(amountInput.trim() !== '' && !Number.isNaN(nairaToKobo(amountInput)))
+    }
+    if (field === 'title') {
+      return !(proposal.title?.trim() || text.trim())
+    }
+    if (field === 'due_on' || field === 'due_day') {
+      return !(proposal.due_on || proposal.rrule)
+    }
+    return true
+  })
+}
+
+function canConfirm(proposal: Proposal, amountInput: string, text: string): boolean {
+  return resolvedMissing(proposal, amountInput, text).length === 0
+}
+
+function xsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function browserSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
+  const w = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognitionLike
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike
+  }
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
+}
+
 export function QuickCapturePage() {
   const navigate = useNavigate()
   const [text, setText] = useState('')
@@ -42,6 +85,7 @@ export function QuickCapturePage() {
   const [recording, setRecording] = useState(false)
   const [voiceHint, setVoiceHint] = useState('')
   const mediaRef = useRef<MediaRecorder | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const confirmRef = useRef<HTMLElement>(null)
 
@@ -64,6 +108,11 @@ export function QuickCapturePage() {
       confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [proposal])
+
+  useEffect(() => () => {
+    recognitionRef.current?.stop()
+    mediaRef.current?.stop()
+  }, [])
 
   async function parseText(value: string) {
     setSaving(true)
@@ -93,23 +142,35 @@ export function QuickCapturePage() {
     setSaving(true)
     setError('')
     try {
-      const next: Proposal = {
-        ...proposal,
-        title: proposal.title?.trim() || text.trim(),
-        amount_minor: amountInput.trim()
-          ? nairaToKobo(amountInput)
-          : proposal.amount_minor,
-        missing_fields: proposal.missing_fields.filter((field) => {
-          if (field === 'amount_minor' && amountInput.trim()) return false
-          if (field === 'title' && (proposal.title || text.trim())) return false
-          return true
-        }),
-      }
-      if (Number.isNaN(next.amount_minor as number)) {
+      const amountMinor = amountInput.trim()
+        ? nairaToKobo(amountInput)
+        : proposal.amount_minor
+      if (Number.isNaN(amountMinor as number)) {
         setError('Enter a valid amount in naira.')
         setSaving(false)
         return
       }
+
+      let rrule = proposal.rrule
+      if (!rrule && proposal.due_on && proposal.missing_fields.includes('due_day')) {
+        const day = Number(proposal.due_on.split('-')[2])
+        if (day >= 1 && day <= 31) {
+          rrule = `FREQ=MONTHLY;BYMONTHDAY=${day}`
+        }
+      }
+
+      const next: Proposal = {
+        ...proposal,
+        title: proposal.title?.trim() || text.trim(),
+        amount_minor: amountMinor,
+        rrule,
+        missing_fields: resolvedMissing(
+          { ...proposal, amount_minor: amountMinor, rrule },
+          amountInput,
+          text,
+        ),
+      }
+
       const response = await api<{ data: { id: string } }>('/api/assistant/confirm', {
         method: 'POST',
         body: JSON.stringify({ proposal: next }),
@@ -121,12 +182,89 @@ export function QuickCapturePage() {
     }
   }
 
+  async function transcribeWithWhisper(blob: Blob): Promise<string | null> {
+    await fetch(`${import.meta.env.VITE_API_URL ?? ''}/sanctum/csrf-cookie`, { credentials: 'include' })
+    const token = localStorage.getItem('gitlife_access_token')
+    const headers: HeadersInit = { Accept: 'application/json' }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    } else {
+      const xsrf = xsrfToken()
+      if (xsrf) headers['X-XSRF-TOKEN'] = xsrf
+    }
+
+    const form = new FormData()
+    form.append('audio', blob, 'capture.webm')
+    const response = await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/assistant/transcribe`, {
+      method: 'POST',
+      headers,
+      credentials: token ? 'omit' : 'include',
+      body: form,
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      if (response.status === 503) return null
+      throw new Error(body.message ?? 'Voice transcription failed.')
+    }
+    return String(body.text ?? '').trim() || null
+  }
+
+  function listenWithBrowserSpeech(): Promise<string> {
+    const Recognition = browserSpeechRecognition()
+    if (!Recognition) {
+      return Promise.reject(new Error('This browser has no speech recognition. Type the reminder instead.'))
+    }
+
+    return new Promise((resolve, reject) => {
+      const recognition = new Recognition()
+      recognitionRef.current = recognition
+      recognition.lang = 'en-NG'
+      recognition.interimResults = false
+      recognition.continuous = false
+      recognition.onresult = (event) => {
+        const transcript = event.results[0]?.[0]?.transcript?.trim() ?? ''
+        if (transcript) resolve(transcript)
+        else reject(new Error('No speech detected. Try again.'))
+      }
+      recognition.onerror = (event) => {
+        reject(new Error(event.error === 'not-allowed'
+          ? 'Microphone permission is required for voice capture.'
+          : 'Could not hear that. Try again or type it.'))
+      }
+      recognition.onend = () => {
+        setRecording(false)
+        recognitionRef.current = null
+      }
+      recognition.start()
+      setRecording(true)
+    })
+  }
+
   async function toggleVoice() {
     setVoiceHint('')
     setError('')
-    if (recording && mediaRef.current) {
-      mediaRef.current.stop()
+
+    if (recording) {
+      recognitionRef.current?.stop()
+      if (mediaRef.current && mediaRef.current.state !== 'inactive') {
+        mediaRef.current.stop()
+      }
       setRecording(false)
+      return
+    }
+
+    // Prefer browser speech (works without Whisper). Fall back to Whisper upload if available.
+    if (browserSpeechRecognition()) {
+      try {
+        const transcript = await listenWithBrowserSpeech()
+        setText(transcript)
+        setVoiceHint('Heard you — reviewing…')
+        await parseText(transcript)
+        setVoiceHint('')
+      } catch (caught) {
+        setVoiceHint(caught instanceof Error ? caught.message : 'Voice capture failed.')
+        setRecording(false)
+      }
       return
     }
 
@@ -141,33 +279,23 @@ export function QuickCapturePage() {
         void (async () => {
           stream.getTracks().forEach((track) => track.stop())
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-          const form = new FormData()
-          form.append('audio', blob, 'capture.webm')
           try {
-            const token = localStorage.getItem('gitlife_access_token')
-            const headers: HeadersInit = { Accept: 'application/json' }
-            if (token) headers.Authorization = `Bearer ${token}`
-            const response = await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/assistant/transcribe`, {
-              method: 'POST',
-              headers,
-              credentials: token ? 'omit' : 'include',
-              body: form,
-            })
-            const body = await response.json().catch(() => ({}))
-            if (!response.ok) {
-              setVoiceHint(body.message ?? 'Voice needs SPEECH_TO_TEXT_PROVIDER=openai in the API .env.')
+            const transcript = await transcribeWithWhisper(blob)
+            if (!transcript) {
+              setVoiceHint('Server voice is not configured. Use Chrome/Edge browser Voice, or type it.')
               return
             }
-            setText(body.text)
-            await parseText(body.text)
-          } catch {
-            setVoiceHint('Could not reach speech-to-text. Configure Whisper in .env.')
+            setText(transcript)
+            await parseText(transcript)
+          } catch (caught) {
+            setVoiceHint(caught instanceof Error ? caught.message : 'Could not reach speech-to-text.')
           }
         })()
       }
       mediaRef.current = recorder
       recorder.start()
       setRecording(true)
+      setVoiceHint('Recording… tap Voice again to stop.')
     } catch {
       setVoiceHint('Microphone permission is required for voice capture.')
     }
@@ -175,6 +303,7 @@ export function QuickCapturePage() {
 
   const step = proposal ? 'confirm' : 'capture'
   const type = proposal?.type ?? 'task'
+  const stillNeed = proposal ? resolvedMissing(proposal, amountInput, text) : []
 
   return (
     <div className={`capture-screen step-${step}`}>
@@ -293,10 +422,17 @@ export function QuickCapturePage() {
               </label>
             )}
             {proposal.rrule && <p className="muted">Recurrence: {proposal.rrule}</p>}
-            {proposal.missing_fields.length > 0 && (
-              <p className="error">Still need: {proposal.missing_fields.join(', ')}</p>
+            {stillNeed.length > 0 && (
+              <p className="error">
+                Still need: {stillNeed.map((field) => {
+                  if (field === 'amount_minor') return 'amount'
+                  if (field === 'due_day') return 'day of month (pick Due on)'
+                  if (field === 'due_on') return 'due date'
+                  return field
+                }).join(', ')}
+              </p>
             )}
-            {proposal.ambiguities.length > 0 && (
+            {proposal.ambiguities.length > 0 && stillNeed.length > 0 && (
               <ul className="muted ambiguity-list">
                 {proposal.ambiguities.map((item) => <li key={item}>{item}</li>)}
               </ul>
@@ -321,19 +457,4 @@ export function QuickCapturePage() {
       )}
     </div>
   )
-}
-
-function canConfirm(proposal: Proposal, amountInput: string, text: string): boolean {
-  return proposal.missing_fields.every((field) => {
-    if (field === 'amount_minor') {
-      return amountInput.trim() !== '' && !Number.isNaN(nairaToKobo(amountInput))
-    }
-    if (field === 'title') {
-      return Boolean(proposal.title?.trim() || text.trim())
-    }
-    if (field === 'due_on' || field === 'due_day') {
-      return Boolean(proposal.due_on || proposal.rrule)
-    }
-    return false
-  })
 }

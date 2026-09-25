@@ -60,6 +60,26 @@ class PhaseFiveAssistantTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_confirm_accepts_user_filled_amount_and_due_day(): void
+    {
+        $user = User::factory()->create();
+
+        $proposal = $this->actingAs($user)->postJson('/api/assistant/parse', [
+            'text' => 'Pay electricity 9000 monthly',
+        ])->assertOk()->json('proposal');
+
+        $this->assertContains('due_day', $proposal['missing_fields']);
+
+        $proposal['amount_minor'] = 900_000;
+        $proposal['due_on'] = '2026-09-26';
+
+        $this->actingAs($user)->postJson('/api/assistant/confirm', [
+            'proposal' => $proposal,
+        ])->assertCreated()
+            ->assertJsonPath('data.type', 'payment')
+            ->assertJsonPath('data.payment.amount_minor', 900_000);
+    }
+
     public function test_ask_uses_user_scoped_tools_only(): void
     {
         $user = User::factory()->create();

@@ -18,4 +18,4 @@ DB_PASSWORD=gitlife-change-me
 }
 
 docker compose -f docker-compose.prod.yml up -d --build
-Write-Host "Stack starting. See docs/DEPLOY.md for the smoke checklist."
+Write-Host "Stack starting. Run .\deploy\smoke.ps1 when containers are healthy. See docs/DEPLOY.md."

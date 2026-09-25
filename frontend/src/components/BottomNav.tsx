@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 
-const HIDDEN_ON = ['/login', '/register', '/capture', '/widget']
+const HIDDEN_ON = ['/login', '/register', '/capture', '/widget', '/onboarding']
 
 export function BottomNav() {
   const location = useLocation()

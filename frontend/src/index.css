@@ -634,6 +634,158 @@ main.capture-main {
 .more-page .menu-btn:last-child { border-bottom: 0; }
 .more-page .danger-text { color: var(--danger); }
 
+/* Activity detail */
+.activity-detail { gap: 12px; }
+.activity-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.back-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.back-link:hover { color: var(--accent); }
+.edit-link {
+  min-height: 34px;
+  padding: 4px 12px;
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.activity-hero {
+  display: grid;
+  grid-template-columns: 6px 1fr;
+  gap: 0 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  animation: rise 220ms ease-out;
+}
+.activity-rail { background: var(--type-task); min-height: 100%; }
+.activity-detail.type-payment .activity-rail,
+.activity-hero.type-payment .activity-rail { background: var(--type-payment); }
+.activity-detail.type-task .activity-rail,
+.activity-hero.type-task .activity-rail { background: var(--type-task); }
+.activity-detail.type-shopping .activity-rail,
+.activity-hero.type-shopping .activity-rail { background: var(--type-shopping); }
+.activity-detail.type-birthday .activity-rail,
+.activity-detail.type-anniversary .activity-rail,
+.activity-detail.type-visit .activity-rail,
+.activity-detail.type-appointment .activity-rail,
+.activity-detail.type-event .activity-rail,
+.activity-hero.type-birthday .activity-rail,
+.activity-hero.type-anniversary .activity-rail,
+.activity-hero.type-visit .activity-rail,
+.activity-hero.type-appointment .activity-rail,
+.activity-hero.type-event .activity-rail { background: var(--type-people); }
+.activity-hero-body {
+  padding: 14px 14px 14px 0;
+  display: grid;
+  gap: 6px;
+}
+.activity-hero-body h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+}
+.activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.activity-meta .pill { margin-left: 0; }
+.activity-notes {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+.activity-actions .capture-primary {
+  min-height: 42px;
+}
+.activity-pending-note {
+  text-align: center;
+  padding: 8px;
+}
+.follow-up-card {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.occurrence-history li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.activity-danger {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+.activity-danger .danger-text {
+  color: var(--danger);
+  border-color: transparent;
+  min-height: 36px;
+}
+
+/* Onboarding */
+.onboarding-screen {
+  min-height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 18px 32px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  background:
+    radial-gradient(900px 420px at 50% -10%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 60%),
+    var(--bg);
+}
+.onboarding-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.onboarding-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+  animation: rise 280ms ease-out;
+}
+.onboarding-panel h1 {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  margin: 0;
+}
+.privacy-box {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.onboarding-choices {
+  display: grid;
+  gap: 8px;
+}
+.choice-card {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  min-height: 64px;
+  text-decoration: none;
+  font: inherit;
+}
+.choice-card:hover {
+  border-color: var(--accent);
+}
+
 @media (min-width: 768px) {
   .bottom-nav {
     left: 50%;

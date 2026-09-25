@@ -68,6 +68,51 @@ class AssistantParseService
     }
 
     /**
+     * Drop missing_fields that the user has already filled on the confirm step.
+     * If due_day was missing but due_on is set, treat that day as the monthly due day.
+     *
+     * @param  array<string, mixed>  $proposal
+     * @return array<string, mixed>
+     */
+    public function resolveFilledFields(array $proposal): array
+    {
+        $missing = array_values(array_filter(
+            $proposal['missing_fields'] ?? [],
+            function (string $field) use ($proposal): bool {
+                if ($field === 'amount_minor') {
+                    return ! isset($proposal['amount_minor']);
+                }
+                if ($field === 'title') {
+                    return ! filled($proposal['title'] ?? null);
+                }
+                if ($field === 'due_on' || $field === 'due_day') {
+                    return ! filled($proposal['due_on'] ?? null) && ! filled($proposal['rrule'] ?? null);
+                }
+
+                return true;
+            }
+        ));
+
+        if (
+            filled($proposal['due_on'] ?? null)
+            && ! filled($proposal['rrule'] ?? null)
+            && in_array('due_day', $proposal['missing_fields'] ?? [], true)
+        ) {
+            $day = (int) date('j', strtotime((string) $proposal['due_on']));
+            if ($day >= 1 && $day <= 31) {
+                $proposal['rrule'] = 'FREQ=MONTHLY;BYMONTHDAY='.$day;
+                if (empty($proposal['reminder_offsets_minutes'])) {
+                    $proposal['reminder_offsets_minutes'] = [4320, 1440];
+                }
+            }
+        }
+
+        $proposal['missing_fields'] = $missing;
+
+        return $proposal;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function heuristic(User $user, string $text): array
@@ -94,7 +139,8 @@ class AssistantParseService
             $type = 'payment';
             $confidence = 0.72;
             if (preg_match('/(?:₦|naira\s*)(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?/iu', $text, $match)
-                || preg_match('/\b(\d{1,3}(?:,\d{3})+)(?:\.(\d{1,2}))?\b/u', $text, $match)) {
+                || preg_match('/\b(\d{1,3}(?:,\d{3})+)(?:\.(\d{1,2}))?\b/u', $text, $match)
+                || preg_match('/\b(\d{3,})(?:\.(\d{1,2}))?\b/u', $text, $match)) {
                 $major = (int) str_replace(',', '', $match[1]);
                 $minor = isset($match[2]) ? (int) str_pad($match[2], 2, '0') : 0;
                 $amount = $major * 100 + $minor;

@@ -52,12 +52,22 @@ docker compose -f docker-compose.prod.yml up -d
 
 First API boot runs migrations and caches config.
 
-## 3. Smoke checklist
+## 3. Smoke checks
 
-- [ ] `https://YOUR_DOMAIN/up` returns OK (API health)
-- [ ] `https://YOUR_DOMAIN/` loads the PWA
+Automated (health + unauth 401 + SPA when not ApiOnly):
+
+```powershell
+.\deploy\smoke.ps1
+.\deploy\smoke.ps1 -BaseUrl https://app.example.com
+# Local API only (php artisan serve):
+.\deploy\smoke.ps1 -BaseUrl http://127.0.0.1:8000 -ApiOnly
+```
+
+Manual checklist after smoke passes:
+
 - [ ] Register / log in works (cookies on same origin)
-- [ ] Create a payment, mark paid
+- [ ] First-run onboarding completes (timezone → first item → reminders)
+- [ ] Create a payment, mark paid (with Undo toast)
 - [ ] `docker compose -f docker-compose.prod.yml logs -f scheduler` shows reminder ticks
 - [ ] Mail arrives when a reminder fires (SMTP configured)
 - [ ] Settings → Web push works over HTTPS
